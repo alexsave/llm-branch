@@ -9,6 +9,9 @@ function App() {
         <p>
           Edit <code>src/App.js</code> and save to reload. Test edit
         </p>
+        <h1>
+          Hi, I am {process.env.SUPABASE_URL} and {process.env.SUPABASE_KEY}
+        </h1>
         <a
           className="App-link"
           href="https://reactjs.org"
