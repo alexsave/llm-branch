@@ -10,7 +10,7 @@ function App() {
           Edit <code>src/App.js</code> and save to reload. Test edit
         </p>
         <h1>
-          Hi, I am {process.env.SUPABASE_URL} and {process.env.SUPABASE_KEY}
+          Hi, I am {process.env.REACT_APP_SUPABASE_URL} and {process.env.REACT_APP_SUPABASE_KEY}
         </h1>
         <a
           className="App-link"
