@@ -1,6 +1,7 @@
 import logo from './logo.svg';
 import './App.css';
 
+//{process.env.REACT_APP_SUPABASE_URL} and {process.env.REACT_APP_SUPABASE_KEY}
 function App() {
   return (
     <div className="App">
@@ -9,9 +10,6 @@ function App() {
         <p>
           Edit <code>src/App.js</code> and save to reload. Test edit
         </p>
-        <h1>
-          Hi, I am {process.env.REACT_APP_SUPABASE_URL} and {process.env.REACT_APP_SUPABASE_KEY}
-        </h1>
         <a
           className="App-link"
           href="https://reactjs.org"
