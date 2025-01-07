@@ -12,7 +12,6 @@ import MessageNode from './MessageNode';
 import { useChat } from '../contexts/ChatContext';
 import { useGraph } from '../contexts/GraphContext';
 
-// const USE_TEST_DATA = true;  // Toggle this to false to disable test data
 const USE_TEST_DATA = false;
 
 const TEST_MESSAGE_GRAPH = {
@@ -168,11 +167,13 @@ const getNodeDimensions = (message) => {
     const lineHeight = 22;  // Pixels per line
     const verticalPadding = 32;  // 16px top + 16px bottom
     const height = Math.max(NODE_HEIGHT, (lineHeight * totalLines) + verticalPadding);
+
+    // Calculate width based on longest line
+    const longestLine = message.content.split('\n').reduce((max, line) => 
+      Math.max(max, line.length), 0);
+    const width = Math.max(NODE_WIDTH, Math.min(800, longestLine * 8 + 32)); // 8px per char + padding
     
-    return { 
-      width: NODE_WIDTH,
-      height
-    };
+    return { width, height };
   } catch (error) {
     console.warn('Error calculating dimensions:', error);
     return { width: NODE_WIDTH, height: NODE_HEIGHT };
@@ -182,11 +183,23 @@ const getNodeDimensions = (message) => {
 const GraphView = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const { setCenter, setViewport } = useReactFlow();
+  const { setCenter, setViewport, getNode } = useReactFlow();
 
   const { messageGraph: originalMessageGraph, selectedMessageId, handleBranch } = useChat();
   const messageGraph = USE_TEST_DATA ? TEST_MESSAGE_GRAPH : originalMessageGraph;
   const { gridPosition, gridScale } = useGraph();
+
+  // Center on node with actual dimensions
+  const centerOnNode = useCallback((nodeId) => {
+    const node = getNode(nodeId);
+    if (node) {
+      setCenter(
+        node.position.x + (node.width / 2),
+        node.position.y + (node.height / 2),
+        { zoom: gridScale, duration: 500 }
+      );
+    }
+  }, [getNode, setCenter, gridScale]);
 
   // Handle node click
   const onNodeClick = useCallback((event, node) => {
@@ -310,12 +323,10 @@ const GraphView = () => {
     // Center on the latest message if it exists
     const latestMessageId = messageGraph.currentPath[messageGraph.currentPath.length - 1];
     if (latestMessageId) {
-      const latestNode = layouted.nodes.find(node => node.id === latestMessageId);
-      if (latestNode) {
-        setCenter(latestNode.position.x, latestNode.position.y, { zoom: gridScale, duration: 500 });
-      }
+      // Use setTimeout to ensure nodes are rendered and dimensions are available
+      setTimeout(() => centerOnNode(latestMessageId), 0);
     }
-  }, [messageGraph, selectedMessageId, handleBranch, gridScale, setCenter]);
+  }, [messageGraph, centerOnNode, selectedMessageId, handleBranch]);
 
   // Update nodes and edges when the message graph changes
   useEffect(() => {
