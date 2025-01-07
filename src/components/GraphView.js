@@ -21,8 +21,9 @@ const GraphView = ({
   const containerRef = useRef(null);
   const lastPosition = useRef({ x: 0, y: 0 });
   const nodeBoundaries = useRef(new Map());
+  const [nodeHeights, setNodeHeights] = useState(new Map());
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const { positions, curves, bounds, width, height, center } = useTreeLayout(messageGraph);
+  const { positions, curves, bounds, width, height, center } = useTreeLayout(messageGraph, nodeHeights);
 
   const isClickInsideNode = (clientX, clientY) => {
     const container = containerRef.current;
@@ -66,9 +67,10 @@ const GraphView = ({
     };
   }, [handleMouseMove, handleMouseUp]);
 
-  // Update node boundaries when positions change
+  // Update node boundaries and heights when positions change
   useEffect(() => {
     const newBoundaries = new Map();
+    const newHeights = new Map();
     const nodeElements = document.querySelectorAll('.message');
     
     nodeElements.forEach(element => {
@@ -84,10 +86,12 @@ const GraphView = ({
         const bottom = (rect.bottom - container.top - gridPosition.y) / gridScale;
         
         newBoundaries.set(nodeId, { left, right, top, bottom });
+        newHeights.set(nodeId, (bottom - top));
       }
     });
     
     nodeBoundaries.current = newBoundaries;
+    setNodeHeights(newHeights);
   }, [positions, gridPosition.x, gridPosition.y, gridScale]);
 
   // Center the tree when it updates or when new messages are added
