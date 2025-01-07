@@ -65,19 +65,32 @@ function App() {
     const messages = [];
     let currentId = messageGraph.root;
     
-    // If a message is selected, only show messages up to that point
-    const endId = selectedMessageId || Object.keys(messageGraph.nodes).find(id => {
-      const node = messageGraph.nodes[id];
-      return messageGraph.currentPath.includes(id) && !node.activeChild;
-    });
-    
-    while (currentId) {
-      const node = messageGraph.nodes[currentId];
-      if (!node) break;
-      messages.push(node);
-      if (currentId === endId) break;
-      currentId = node.activeChild;
+    // If a message is selected, traverse up to find its path
+    if (selectedMessageId) {
+      const path = [];
+      let current = selectedMessageId;
+      // Build path from selected message up to root
+      while (current) {
+        path.unshift(current);
+        current = messageGraph.nodes[current]?.parentId;
+      }
+      
+      // Now follow this exact path
+      for (const id of path) {
+        const node = messageGraph.nodes[id];
+        if (!node) break;
+        messages.push(node);
+      }
+    } else {
+      // No selection - follow the current active path
+      while (currentId) {
+        const node = messageGraph.nodes[currentId];
+        if (!node) break;
+        messages.push(node);
+        currentId = node.activeChild;
+      }
     }
+    
     return messages;
   };
 
@@ -147,27 +160,18 @@ function App() {
 
       // Get messages up to the new user message
       const getMessageHistory = () => {
-        const history = [];
-        let currentId = messageGraph.root;
-        
-        while (currentId) {
-          const node = messageGraph.nodes[currentId];
-          if (!node) break;
-          
-          history.push({ role: node.role, content: node.content });
-          
-          // Stop if we've reached the new user message
-          if (currentId === newMessageId) break;
-          
-          currentId = node.activeChild;
-        }
+        const messages = getCurrentPathMessages();
         
         // Add the new user message if it's not already included
-        if (history[history.length - 1]?.content !== input) {
-          history.push({ role: 'user', content: input });
+        if (messages[messages.length - 1]?.content !== input) {
+          messages.push({ role: 'user', content: input });
         }
         
-        return history;
+        // Convert to the format expected by the API
+        return messages.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }));
       };
 
       const response = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/chat-stream`, {
@@ -294,11 +298,6 @@ function App() {
                 <div className="message-actions">
                   {msg.role === 'assistant' && (
                     <span className="reply-label">Click to reply</span>
-                  )}
-                  {msg.children.length > 1 && (
-                    <span className="branch-indicator">
-                      {msg.children.length} branches
-                    </span>
                   )}
                 </div>
               </div>
