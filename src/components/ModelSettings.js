@@ -12,6 +12,7 @@ const ModelSettings = ({ onClose }) => {
       apiKey: '',
       ollamaUrl: e.target.value === 'ollama' ? 'http://localhost:11434' : '',
       ollamaModelName: e.target.value === 'ollama' ? 'llama3.2' : '',
+      openaiModel: e.target.value === 'openai' ? 'gpt-3.5-turbo' : '',
     });
   };
 
@@ -36,6 +37,13 @@ const ModelSettings = ({ onClose }) => {
     });
   };
 
+  const handleOpenAIModelChange = (e) => {
+    updateModelSettings({
+      ...modelSettings,
+      openaiModel: e.target.value,
+    });
+  };
+
   return (
     <div className="model-settings">
       <div className="settings-header">
@@ -44,14 +52,14 @@ const ModelSettings = ({ onClose }) => {
       </div>
       <div className="settings-content">
         <div className="setting-group">
-          <label htmlFor="model-select">Model:</label>
+          <label htmlFor="model-select">Provider:</label>
           <select 
             id="model-select" 
             value={modelSettings.selectedModel} 
             onChange={handleModelChange}
           >
-            <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Default)</option>
-            <option value="gpt-4">GPT-4</option>
+            <option value="gpt-3.5-turbo">Default Server (GPT-3.5)</option>
+            <option value="openai">OpenAI</option>
             <option value="claude-2">Claude 2</option>
             <option value="ollama">Ollama</option>
           </select>
@@ -86,19 +94,46 @@ const ModelSettings = ({ onClose }) => {
               </small>
             </div>
           </>
-        ) : modelSettings.selectedModel !== 'gpt-3.5-turbo' && (
+        ) : modelSettings.selectedModel === 'openai' ? (
+          <>
+            <div className="setting-group">
+              <label htmlFor="openai-model">OpenAI Model:</label>
+              <select
+                id="openai-model"
+                value={modelSettings.openaiModel}
+                onChange={handleOpenAIModelChange}
+              >
+                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                <option value="gpt-4">GPT-4</option>
+                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+              </select>
+            </div>
+            <div className="setting-group">
+              <label htmlFor="api-key">OpenAI API Key:</label>
+              <input
+                type="password"
+                id="api-key"
+                value={modelSettings.apiKey || ''}
+                onChange={handleApiKeyChange}
+                placeholder="Enter your OpenAI API key"
+              />
+              <small className="api-key-note">
+                Required for using OpenAI models directly
+              </small>
+            </div>
+          </>
+        ) : modelSettings.selectedModel === 'claude-2' && (
           <div className="setting-group">
-            <label htmlFor="api-key">API Key:</label>
+            <label htmlFor="api-key">Anthropic API Key:</label>
             <input
               type="password"
               id="api-key"
               value={modelSettings.apiKey || ''}
               onChange={handleApiKeyChange}
-              placeholder="Enter your API key"
+              placeholder="Enter your Anthropic API key"
             />
             <small className="api-key-note">
-              {modelSettings.selectedModel.includes('gpt') ? 'OpenAI' :
-               'Anthropic'} API key required
+              Required for using Claude 2
             </small>
           </div>
         )}

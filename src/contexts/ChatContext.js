@@ -21,6 +21,7 @@ export const ChatProvider = ({ children }) => {
     apiKey: '',
     ollamaUrl: 'http://localhost:11434',
     ollamaModelName: 'llama3.2',
+    openaiModel: 'gpt-3.5-turbo',
   });
   const responseRef = useRef('');
 
@@ -147,6 +148,7 @@ export const ChatProvider = ({ children }) => {
         // Handle different model APIs
         switch (modelSettings.selectedModel) {
           case 'gpt-4':
+          case 'openai':
             response = await fetch('https://api.openai.com/v1/chat/completions', {
               method: 'POST',
               headers: {
@@ -154,7 +156,7 @@ export const ChatProvider = ({ children }) => {
                 'Authorization': `Bearer ${modelSettings.apiKey}`,
               },
               body: JSON.stringify({
-                model: 'gpt-4',
+                model: modelSettings.openaiModel,
                 messages,
                 stream: true,
               }),
@@ -208,55 +210,81 @@ export const ChatProvider = ({ children }) => {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+      let buffer = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const text = decoder.decode(value);
-        let chunk = text;
-
-        // Handle different streaming formats
-        if (modelSettings.selectedModel !== 'gpt-3.5-turbo') {
+        // Append new data to buffer and split into lines
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        
+        // Process all complete lines
+        buffer = lines.pop() || ''; // Keep the last incomplete line in the buffer
+        
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
+          
           try {
-            const lines = text.split('\n').filter(line => line.trim());
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const data = JSON.parse(line.slice(6));
-                if (modelSettings.selectedModel.includes('gpt')) {
-                  chunk = data.choices[0]?.delta?.content || '';
+            if (modelSettings.selectedModel !== 'gpt-3.5-turbo') {
+              if (trimmedLine.startsWith('data: ')) {
+                const data = JSON.parse(trimmedLine.slice(6));
+                if (modelSettings.selectedModel === 'openai' || modelSettings.selectedModel.includes('gpt')) {
+                  // Handle OpenAI streaming format
+                  if (data.choices?.[0]?.delta?.content) {
+                    responseRef.current += data.choices[0].delta.content;
+                  }
                 } else if (modelSettings.selectedModel === 'claude-2') {
-                  chunk = data.content || '';
+                  if (data.content) {
+                    responseRef.current += data.content;
+                  }
                 }
               } else if (modelSettings.selectedModel === 'ollama') {
                 // Parse Ollama's JSON response directly
-                const data = JSON.parse(line);
-                // Skip the final stats message (when done is true)
-                if (!data.done) {
-                  chunk = data.message?.content || '';
-                } else {
-                  chunk = ''; // Don't append anything for the stats message
+                const data = JSON.parse(trimmedLine);
+                if (!data.done && data.message?.content) {
+                  responseRef.current += data.message.content;
                 }
               }
+            } else {
+              responseRef.current += trimmedLine;
             }
           } catch (e) {
             console.error('Error parsing streaming response:', e);
           }
-        }
 
-        responseRef.current += chunk;
-        
-        // Update the assistant's message
-        setMessageGraph(prev => {
-          const newNodes = {
-            ...prev.nodes,
-            [assistantMessageId]: {
-              ...prev.nodes[assistantMessageId],
-              content: responseRef.current,
-            },
-          };
-          return validateGraph(prev, newNodes, prev.currentPath);
-        });
+          // Update the assistant's message
+          setMessageGraph(prev => {
+            const newNodes = {
+              ...prev.nodes,
+              [assistantMessageId]: {
+                ...prev.nodes[assistantMessageId],
+                content: responseRef.current,
+              },
+            };
+            return validateGraph(prev, newNodes, prev.currentPath);
+          });
+        }
+      }
+
+      // Handle any remaining data in the buffer
+      if (buffer) {
+        try {
+          if (modelSettings.selectedModel !== 'gpt-3.5-turbo') {
+            if (buffer.startsWith('data: ')) {
+              const data = JSON.parse(buffer.slice(6));
+              if (data.choices?.[0]?.delta?.content) {
+                responseRef.current += data.choices[0].delta.content;
+              }
+            }
+          } else {
+            responseRef.current += buffer;
+          }
+        } catch (e) {
+          console.error('Error parsing final buffer:', e);
+        }
       }
     } catch (err) {
       setError(err.message);
