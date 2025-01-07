@@ -38,7 +38,8 @@ const GraphView = ({
     for (const [nodeId, boundary] of nodeBoundaries.current.entries()) {
       if (graphX >= boundary.left && graphX <= boundary.right &&
           graphY >= boundary.top && graphY <= boundary.bottom) {
-        return nodeId;
+        // Only return the nodeId if it's an assistant node
+        return messageGraph.nodes[nodeId]?.role === 'assistant' ? nodeId : null;
       }
     }
     return null;
@@ -258,7 +259,7 @@ const GraphView = ({
             left: 0,
             width: '100%',
             height: '100%',
-            minWidth: '10000px', // Large minimum size to ensure nodes can extend
+            minWidth: '10000px',
             minHeight: '10000px',
             pointerEvents: isDragging ? 'none' : 'auto',
             overflow: 'visible'
@@ -266,6 +267,7 @@ const GraphView = ({
         >
           {Array.from(positions.entries()).map(([nodeId, pos]) => {
             const node = messageGraph.nodes[nodeId];
+            const isAssistant = node.role === 'assistant';
             return (
               <div
                 key={nodeId}
@@ -276,12 +278,13 @@ const GraphView = ({
                   left: pos.x,
                   top: pos.y,
                   transform: 'translate(-50%, 0)',
+                  cursor: isAssistant ? 'pointer' : 'default',
                 }}
               >
                 <strong>{node.role === 'user' ? 'You' : 'Assistant'}:</strong>
                 <p>{node.content}</p>
                 <div className="message-actions">
-                  {node.role === 'assistant' && (
+                  {isAssistant && (
                     <span className="reply-label">Click to reply</span>
                   )}
                 </div>
