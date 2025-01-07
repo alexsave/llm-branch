@@ -125,27 +125,41 @@ function App() {
       };
 
       // Add assistant message and new preview node
-      setMessageGraph(prev => ({
-        nodes: { 
-          ...prev.nodes, 
+      setMessageGraph(prev => {
+        const newPath = [...prev.currentPath.filter(id => id !== 'preview'), assistantMessageId];
+        const newNodes = {
+          ...prev.nodes,
           [assistantMessageId]: assistantMessage,
           [newMessageId]: {
             ...prev.nodes[newMessageId],
             children: [...prev.nodes[newMessageId].children, assistantMessageId],
             activeChild: assistantMessageId,
-          },
-          preview: {
-            id: 'preview',
-            role: 'user',
-            content: '',
-            parentId: assistantMessageId,
-            children: [],
-            activeChild: null,
           }
-        },
-        root: prev.root,
-        currentPath: [...prev.currentPath, assistantMessageId, 'preview'],
-      }));
+        };
+
+        // Set activeChild pointers along the path
+        Object.values(newNodes).forEach(node => {
+          node.activeChild = null;
+        });
+        
+        for (let i = 0; i < newPath.length - 1; i++) {
+          const parentId = newPath[i];
+          const childId = newPath[i + 1];
+          if (parentId && childId) {
+            newNodes[parentId] = {
+              ...newNodes[parentId],
+              activeChild: childId
+            };
+          }
+        }
+
+        return {
+          ...prev,
+          nodes: newNodes,
+          root: prev.root,
+          currentPath: newPath,
+        };
+      });
 
       // Get messages up to the new user message
       const getMessageHistory = () => {
@@ -183,7 +197,91 @@ function App() {
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          console.log('=== Streaming complete ===');
+          console.log('Assistant message ID:', assistantMessageId);
+          console.log('Current messageGraph:', messageGraph);
+          
+          // Update preview node's parent and path
+          setMessageGraph(prev => {
+            console.log('Creating preview node - current state:', {
+              nodes: Object.keys(prev.nodes),
+              currentPath: prev.currentPath,
+              root: prev.root
+            });
+            
+            // Build path using current graph state
+            const newPath = [];
+            let currentId = assistantMessageId;
+            console.log('Building path from assistant ID:', assistantMessageId);
+            console.log('Assistant node:', prev.nodes[assistantMessageId]);
+            
+            while (currentId) {
+              newPath.unshift(currentId);
+              console.log('Added to path:', currentId);
+              const node = prev.nodes[currentId];
+              console.log('Current node:', node);
+              currentId = node?.parentId;
+              console.log('Next parent:', currentId);
+            }
+            
+            console.log('Final path before preview:', newPath);
+            newPath.push('preview');
+            console.log('Path after adding preview:', newPath);
+            
+            const newNodes = { ...prev.nodes };
+            
+            console.log('Resetting activeChild pointers');
+            // Reset all activeChild pointers
+            Object.values(newNodes).forEach(node => {
+              node.activeChild = null;
+            });
+            
+            console.log('Setting new activeChild pointers');
+            // Set activeChild for each parent in the path
+            for (let i = 0; i < newPath.length - 1; i++) {
+              const parentId = newPath[i];
+              const childId = newPath[i + 1];
+              console.log(`Setting ${parentId}'s activeChild to ${childId}`);
+              if (parentId && childId) {
+                newNodes[parentId] = {
+                  ...newNodes[parentId],
+                  activeChild: childId
+                };
+              }
+            }
+            
+            // Ensure preview node exists and is properly connected
+            const result = {
+              ...prev,
+              nodes: {
+                ...newNodes,
+                [assistantMessageId]: {
+                  ...newNodes[assistantMessageId],
+                  children: [...(newNodes[assistantMessageId]?.children || []), 'preview'],
+                  activeChild: 'preview'
+                },
+                preview: {
+                  id: 'preview',
+                  role: 'user',
+                  content: '',
+                  parentId: assistantMessageId,
+                  children: [],
+                  activeChild: null,
+                }
+              },
+              currentPath: newPath,
+            };
+            console.log('Final result:', {
+              nodes: Object.keys(result.nodes),
+              currentPath: result.currentPath,
+              preview: result.nodes.preview,
+              assistant: result.nodes[assistantMessageId]
+            });
+            return result;
+          });
+          break;
+        }
 
         const text = decoder.decode(value);
         responseRef.current += text;
@@ -205,8 +303,6 @@ function App() {
     } finally {
       setIsLoading(false);
       setSelectedMessageId(null);
-      // Create preview node after assistant response is complete
-      setPreviewMessageId('preview');
     }
   };
 
