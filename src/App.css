@@ -147,11 +147,6 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
-.message:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
 .message.user {
   background: rgba(128, 128, 128, 0.1);
   border-color: rgba(128, 128, 128, 0.3);
@@ -178,7 +173,7 @@
   background: rgba(128, 128, 128, 0.1);
 }
 
-.message .model-info {
+.model-info {
   position: absolute;
   bottom: 8px;
   left: 16px;
@@ -187,14 +182,45 @@
   font-family: monospace;
 }
 
-.message.assistant {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.1);
+.message.clickable {
+  cursor: pointer;
+  position: relative;
+}
+
+.message.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.message.clickable:hover .message-actions {
+  opacity: 1;
+}
+
+.message-actions {
+  position: absolute;
+  bottom: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 1000;
+}
+
+.message.active {
+  border-color: #4caf50;
+  box-shadow: 0 0 0 1px #4caf50;
 }
 
 .message.selected {
   border-color: #2196f3;
-  box-shadow: 0 0 0 1px rgba(33, 150, 243, 0.3);
+  box-shadow: 0 0 0 1px #2196f3;
 }
 
 .message strong {
