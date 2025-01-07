@@ -3,15 +3,16 @@ import { useMemo } from 'react';
 const VERTICAL_SPACING = 120;
 const HORIZONTAL_SPACING = 250;
 const NODE_HEIGHT = 100; // Approximate height of a node
+const GRID_CENTER = 5000; // Center of our 10000x10000 grid
 
 export const useTreeLayout = (messageGraph) => {
   return useMemo(() => {
     const positions = new Map();
     const processedLevels = new Map();
-    let bounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+    let bounds = { minX: GRID_CENTER, maxX: GRID_CENTER, minY: GRID_CENTER, maxY: GRID_CENTER };
     
     const computePositions = (nodeId, level = 0, parentX = null) => {
-      if (!nodeId || !messageGraph.nodes[nodeId]) return { width: 0, center: 0 };
+      if (!nodeId || !messageGraph.nodes[nodeId]) return { width: 0, center: GRID_CENTER };
       
       const node = messageGraph.nodes[nodeId];
       
@@ -45,10 +46,10 @@ export const useTreeLayout = (messageGraph) => {
         const lastNodeAtLevel = levelNodes[levelNodes.length - 1];
         center = lastNodeAtLevel 
           ? positions.get(lastNodeAtLevel).x + HORIZONTAL_SPACING
-          : (parentX !== null ? parentX : 0);
+          : (parentX !== null ? parentX : GRID_CENTER);
       }
       
-      const y = level * VERTICAL_SPACING + 60;
+      const y = level * VERTICAL_SPACING + GRID_CENTER;
       
       // Update bounds
       bounds.minX = Math.min(bounds.minX, center - HORIZONTAL_SPACING / 2);

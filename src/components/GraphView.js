@@ -89,7 +89,7 @@ const GraphView = ({
     nodeBoundaries.current = newBoundaries;
   }, [positions, gridPosition.x, gridPosition.y, gridScale]);
 
-  // Center the tree when it updates
+  // Center the tree when it updates or when new messages are added
   useEffect(() => {
     if (containerRef.current && width && height) {
       const container = containerRef.current;
@@ -99,18 +99,26 @@ const GraphView = ({
       const scaleX = (containerRect.width - 100) / width;
       const scaleY = (containerRect.height - 100) / height;
       const fitScale = Math.min(1, scaleX, scaleY);
+
+      // Get the latest message position
+      const latestMessageId = messageGraph.currentPath[messageGraph.currentPath.length - 1];
+      const latestPosition = positions.get(latestMessageId);
       
-      // Center position
-      const centerX = (containerRect.width / 2) - (center.x * fitScale);
-      const centerY = (containerRect.height / 3) - (center.y * fitScale);
-      
-      // Only center if it's a new tree (no previous position)
-      if (gridPosition.x === 0 && gridPosition.y === 0) {
+      if (latestPosition) {
+        // Center on the latest message
+        const centerX = (containerRect.width / 2) - (latestPosition.x * fitScale);
+        const centerY = (containerRect.height / 2) - (latestPosition.y * fitScale);
+        handleUpdatePosition(centerX, centerY);
+        handleUpdateScale(fitScale);
+      } else if (!messageGraph.root || gridPosition.x === 0 && gridPosition.y === 0) {
+        // Initial centering for first message
+        const centerX = (containerRect.width / 2) - (center.x * fitScale);
+        const centerY = (containerRect.height / 2) - (center.y * fitScale);
         handleUpdatePosition(centerX, centerY);
         handleUpdateScale(fitScale);
       }
     }
-  }, [width, height, center, messageGraph.root]);
+  }, [width, height, center, messageGraph.root, messageGraph.currentPath]);
 
   const constrainPosition = (x, y) => {
     const container = containerRef.current;
@@ -175,6 +183,16 @@ const GraphView = ({
       ref={containerRef}
       className="graph-container"
       onWheel={handleWheel}
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 420,
+        bottom: 0,
+        padding: 40,
+        zIndex: 2,
+        overflow: 'visible'
+      }}
     >
       <div 
         className="graph-content"
@@ -185,19 +203,21 @@ const GraphView = ({
           width: '100%',
           height: '100%',
           transform: `translate(${gridPosition.x}px, ${gridPosition.y}px) scale(${gridScale})`,
-          transformOrigin: 'center',
-          userSelect: 'none'
+          transformOrigin: '0 0',
+          userSelect: 'none',
+          overflow: 'visible'
         }}
       >
         <div 
           className="grid-background" 
           style={{
-            position: 'absolute',
+            position: 'fixed',
             top: 0,
             left: 0,
-            right: 0,
+            right: 420,
             bottom: 0,
-            cursor: isDragging ? 'grabbing' : 'grab'
+            cursor: isDragging ? 'grabbing' : 'grab',
+            zIndex: 1
           }}
           onMouseDown={handleLocalMouseDown}
           onMouseUp={handleMouseUp}
@@ -211,8 +231,12 @@ const GraphView = ({
             left: 0, 
             width: '100%', 
             height: '100%',
-            pointerEvents: 'none'
+            minWidth: '10000px', // Large minimum size to ensure SVG can extend
+            minHeight: '10000px',
+            pointerEvents: 'none',
+            overflow: 'visible'
           }}
+          preserveAspectRatio="none"
         >
           {Array.from(curves.entries()).map(([nodeId, curve]) => (
             <path
@@ -222,6 +246,7 @@ const GraphView = ({
               strokeWidth={curve.isActive ? 2 : 1}
               fill="none"
               strokeDasharray={curve.isActive ? '' : '4,4'}
+              style={{ overflow: 'visible' }}
             />
           ))}
         </svg>
@@ -233,7 +258,10 @@ const GraphView = ({
             left: 0,
             width: '100%',
             height: '100%',
-            pointerEvents: isDragging ? 'none' : 'auto'
+            minWidth: '10000px', // Large minimum size to ensure nodes can extend
+            minHeight: '10000px',
+            pointerEvents: isDragging ? 'none' : 'auto',
+            overflow: 'visible'
           }}
         >
           {Array.from(positions.entries()).map(([nodeId, pos]) => {

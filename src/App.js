@@ -20,7 +20,7 @@ function App() {
   const [error, setError] = useState(null);
   const [selectedMessageId, setSelectedMessageId] = useState(null);
   const responseRef = useRef('');
-  const [gridPosition, setGridPosition] = useState({ x: 0, y: 0 });
+  const [gridPosition, setGridPosition] = useState({ x: 5000, y: 5000 });
   const [gridScale, setGridScale] = useState(1);
   const isDragging = useRef(false);
   const lastPosition = useRef({ x: 0, y: 0 });
@@ -57,12 +57,13 @@ function App() {
     const newX = gridPosition.x + moveDeltaX;
     const newY = gridPosition.y + moveDeltaY;
     
-    // Constrain the position to keep the graph within bounds
+    // Allow much more generous boundaries for panning
     const containerWidth = window.innerWidth - 420; // Account for chat container
     const containerHeight = window.innerHeight;
+    const padding = 5000; // Much larger padding to allow extensive panning
     
-    const constrainedX = Math.min(Math.max(newX, -containerWidth), containerWidth);
-    const constrainedY = Math.min(Math.max(newY, -containerHeight), containerHeight);
+    const constrainedX = Math.min(Math.max(newX, -containerWidth - padding), containerWidth + padding);
+    const constrainedY = Math.min(Math.max(newY, -containerHeight - padding), containerHeight + padding);
     
     handleUpdatePosition(constrainedX, constrainedY);
     lastPosition.current = { x: e.clientX, y: e.clientY };
