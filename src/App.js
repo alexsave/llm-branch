@@ -12,9 +12,18 @@ const supabase = createClient(
 function App() {
   // Store messages as a graph structure
   const [messageGraph, setMessageGraph] = useState({
-    nodes: {}, // Map of message IDs to message objects
-    root: null, // ID of the root message
-    currentPath: [], // Current conversation path being viewed
+    nodes: {
+      preview: {
+        id: 'preview',
+        role: 'user',
+        content: '',
+        parentId: null,
+        children: [],
+        activeChild: null,
+      }
+    },
+    root: 'preview', // Set preview as root initially
+    currentPath: ['preview'], // Include preview in current path
   });
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -24,7 +33,7 @@ function App() {
   const responseRef = useRef('');
   const [gridPosition, setGridPosition] = useState({ x: 0, y: 0 });
   const [gridScale, setGridScale] = useState(1);
-  const [previewMessageId, setPreviewMessageId] = useState(null);
+  const [previewMessageId, setPreviewMessageId] = useState('preview');
 
   // Get messages in the current conversation path
   const getCurrentPathMessages = () => {
@@ -64,10 +73,10 @@ function App() {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    // Clear preview message immediately
-    setPreviewMessageId(null);
-
-    const parentId = selectedMessageId || getCurrentPathMessages().slice(-1)[0]?.id;
+    // Get the parent ID before removing preview
+    const parentId = messageGraph.nodes.preview.parentId;
+    
+    // Remove preview node and create user message
     const newMessageId = Date.now().toString();
     const userMessage = { 
       id: newMessageId,
@@ -80,7 +89,9 @@ function App() {
 
     // Update graph with new message
     setMessageGraph(prev => {
-      const newNodes = { ...prev.nodes, [newMessageId]: userMessage };
+      const { preview, ...otherNodes } = prev.nodes;
+      const newNodes = { ...otherNodes, [newMessageId]: userMessage };
+      
       if (parentId) {
         newNodes[parentId] = {
           ...newNodes[parentId],
@@ -91,8 +102,8 @@ function App() {
       
       return {
         nodes: newNodes,
-        root: prev.root || newMessageId,
-        currentPath: [...(prev.currentPath || []), newMessageId],
+        root: prev.root === 'preview' ? newMessageId : prev.root,
+        currentPath: prev.currentPath.map(id => id === 'preview' ? newMessageId : id),
       };
     });
 
@@ -113,6 +124,7 @@ function App() {
         activeChild: null,
       };
 
+      // Add assistant message and new preview node
       setMessageGraph(prev => ({
         nodes: { 
           ...prev.nodes, 
@@ -121,10 +133,18 @@ function App() {
             ...prev.nodes[newMessageId],
             children: [...prev.nodes[newMessageId].children, assistantMessageId],
             activeChild: assistantMessageId,
+          },
+          preview: {
+            id: 'preview',
+            role: 'user',
+            content: '',
+            parentId: assistantMessageId,
+            children: [],
+            activeChild: null,
           }
         },
         root: prev.root,
-        currentPath: [...prev.currentPath, assistantMessageId],
+        currentPath: [...prev.currentPath, assistantMessageId, 'preview'],
       }));
 
       // Get messages up to the new user message
@@ -185,6 +205,8 @@ function App() {
     } finally {
       setIsLoading(false);
       setSelectedMessageId(null);
+      // Create preview node after assistant response is complete
+      setPreviewMessageId('preview');
     }
   };
 
@@ -195,23 +217,28 @@ function App() {
     // Show chat when a node is clicked
     setIsChatVisible(true);
 
-    // If clicking on a different node, clear the preview
-    if (messageId !== selectedMessageId) {
-      setPreviewMessageId(null);
-    }
-
-    // Only create preview node for assistant messages
-    if (node.role === 'assistant') {
-      const previewId = 'preview';
-      setPreviewMessageId(previewId);
-    }
-
     // Find path from root to this message
     const newPath = [];
     let currentId = messageId;
     while (currentId) {
       newPath.unshift(currentId);
       currentId = messageGraph.nodes[currentId]?.parentId;
+    }
+
+    // Add preview node to path if clicking an assistant message
+    if (node.role === 'assistant') {
+      newPath.push('preview');
+      // Update preview node's parent
+      setMessageGraph(prev => ({
+        ...prev,
+        nodes: {
+          ...prev.nodes,
+          preview: {
+            ...prev.nodes.preview,
+            parentId: messageId,
+          }
+        }
+      }));
     }
 
     // Update both currentPath and activeChild for each node in the path
