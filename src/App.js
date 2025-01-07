@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import GraphView from './components/GraphView';
 import './App.css';
 
 const supabase = createClient(
@@ -25,39 +26,70 @@ function App() {
   const lastPosition = useRef({ x: 0, y: 0 });
 
   const handleMouseDown = (e) => {
+    e.preventDefault(); // Prevent text selection while dragging
     isDragging.current = true;
     lastPosition.current = { x: e.clientX, y: e.clientY };
+    console.log('App: Mouse down, setting isDragging to:', true);
   };
 
   const handleMouseMove = (e) => {
     if (!isDragging.current) return;
+    e.preventDefault(); // Prevent text selection while dragging
     
     const deltaX = e.clientX - lastPosition.current.x;
     const deltaY = e.clientY - lastPosition.current.y;
     
-    setGridPosition(prev => ({
-      x: prev.x + deltaX,
-      y: prev.y + deltaY
-    }));
+    const newX = gridPosition.x + deltaX;
+    const newY = gridPosition.y + deltaY;
     
+    // Constrain the position to keep the graph within bounds
+    const containerWidth = window.innerWidth - 420; // Account for chat container
+    const containerHeight = window.innerHeight;
+    
+    const constrainedX = Math.min(Math.max(newX, -containerWidth), containerWidth);
+    const constrainedY = Math.min(Math.max(newY, -containerHeight), containerHeight);
+    
+    handleUpdatePosition(constrainedX, constrainedY);
     lastPosition.current = { x: e.clientX, y: e.clientY };
   };
 
   const handleMouseUp = () => {
+    console.log('App: Mouse up, setting isDragging to:', false);
     isDragging.current = false;
   };
 
-  const handleWheel = (e) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      setGridScale(prev => Math.min(Math.max(0.5, prev * delta), 2));
-    }
+  const handleUpdatePosition = (x, y) => {
+    console.log('App: Updating position to:', { x, y });
+    setGridPosition({ x, y });
+  };
+
+  const handleUpdateScale = (newScale) => {
+    console.log('App: Updating scale to:', newScale);
+    setGridScale(newScale);
   };
 
   useEffect(() => {
-    window.addEventListener('wheel', handleWheel, { passive: false });
-    return () => window.removeEventListener('wheel', handleWheel);
+    const preventDefault = (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('wheel', preventDefault, { passive: false });
+
+    // Add global mouse event listeners
+    const handleGlobalMouseUp = () => {
+      console.log('App: Global mouse up, setting isDragging to:', false);
+      isDragging.current = false;
+    };
+
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    window.addEventListener('mouseleave', handleGlobalMouseUp);
+
+    return () => {
+      window.removeEventListener('wheel', preventDefault);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+      window.removeEventListener('mouseleave', handleGlobalMouseUp);
+    };
   }, []);
 
   // Get messages in the current conversation path
@@ -240,71 +272,21 @@ function App() {
 
   const messages = getCurrentPathMessages();
 
-  // Group messages by their parent to create levels
-  const getLevels = () => {
-    const levels = [];
-    const seen = new Set();
-    
-    const addToLevel = (messageId, level) => {
-      if (!messageId || seen.has(messageId)) return;
-      
-      while (levels.length <= level) {
-        levels.push([]);
-      }
-      
-      const message = messageGraph.nodes[messageId];
-      if (!message) return;
-      
-      levels[level].push(message);
-      seen.add(messageId);
-      
-      // Add all children to the next level
-      message.children.forEach(childId => {
-        addToLevel(childId, level + 1);
-      });
-    };
-    
-    addToLevel(messageGraph.root, 0);
-    return levels;
-  };
-
-  const levels = getLevels();
-
   return (
     <div className="App">
-      <div 
-        className="grid-background" 
-        style={{
-          transform: `translate(${gridPosition.x}px, ${gridPosition.y}px) scale(${gridScale})`,
-          transformOrigin: 'center',
-          cursor: isDragging.current ? 'grabbing' : 'grab'
-        }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+      <GraphView 
+        messageGraph={messageGraph}
+        selectedMessageId={selectedMessageId}
+        handleBranch={handleBranch}
+        gridPosition={gridPosition}
+        gridScale={gridScale}
+        isDragging={isDragging}
+        handleMouseDown={handleMouseDown}
+        handleMouseMove={handleMouseMove}
+        handleMouseUp={handleMouseUp}
+        handleUpdatePosition={handleUpdatePosition}
+        handleUpdateScale={handleUpdateScale}
       />
-      <div className="graph-container">
-        {levels.map((level, levelIndex) => (
-          <div key={levelIndex} className="graph-level">
-            {level.map((msg) => (
-              <div 
-                key={msg.id} 
-                className={`message ${msg.role} ${selectedMessageId === msg.id ? 'selected' : ''} ${messageGraph.currentPath.includes(msg.id) ? 'active' : ''}`}
-                onClick={() => handleBranch(msg.id)}
-              >
-                <strong>{msg.role === 'user' ? 'You' : 'Assistant'}:</strong>
-                <p>{msg.content}</p>
-                <div className="message-actions">
-                  {msg.role === 'assistant' && (
-                    <span className="reply-label">Click to reply</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
       <div className="chat-container">
         <div className="messages">
           {messages.map((msg) => (
@@ -323,7 +305,6 @@ function App() {
             value={input}
             onChange={(e) => {
               setInput(e.target.value);
-              // Auto-resize
               e.target.style.height = 'inherit';
               e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
             }}
