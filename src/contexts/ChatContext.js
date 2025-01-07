@@ -1,12 +1,6 @@
 import React, { createContext, useState, useRef, useContext } from 'react';
 import { useMessageGraph } from '../hooks/useMessageGraph';
-import { createClient } from '@supabase/supabase-js';
 import { validateGraph } from '../utils/graphValidation';
-
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.REACT_APP_SUPABASE_KEY
-);
 
 const ChatContext = createContext(null);
 
