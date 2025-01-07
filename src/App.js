@@ -223,38 +223,48 @@ function App() {
 
   return (
     <div className="App">
-      <div className="chat-container">
-        <div className="messages">
-          <div className="graph-container">
-            {levels.map((level, levelIndex) => (
-              <div key={levelIndex} className="graph-level">
-                {level.map((msg) => (
-                  <div 
-                    key={msg.id} 
-                    className={`message ${msg.role} ${selectedMessageId === msg.id ? 'selected' : ''}`}
-                  >
-                    <strong>{msg.role === 'user' ? 'You' : 'Assistant'}:</strong>
-                    <p>{msg.content}</p>
-                    <div className="message-actions">
-                      {msg.role === 'assistant' && (
-                        <button 
-                          onClick={() => handleBranch(msg.id)}
-                          className={selectedMessageId === msg.id ? 'selected' : ''}
-                        >
-                          {selectedMessageId === msg.id ? 'Selected for Reply' : 'Reply Here'}
-                        </button>
-                      )}
-                      {msg.children.length > 1 && (
-                        <span className="branch-indicator">
-                          {msg.children.length} branches
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+      <div className="grid-background" />
+      <div className="graph-container">
+        {levels.map((level, levelIndex) => (
+          <div key={levelIndex} className="graph-level">
+            {level.map((msg) => (
+              <div 
+                key={msg.id} 
+                className={`message ${msg.role} ${selectedMessageId === msg.id ? 'selected' : ''} ${messageGraph.currentPath.includes(msg.id) ? 'active' : ''}`}
+              >
+                <strong>{msg.role === 'user' ? 'You' : 'Assistant'}:</strong>
+                <p>{msg.content}</p>
+                <div className="message-actions">
+                  {msg.role === 'assistant' && (
+                    <button 
+                      onClick={() => handleBranch(msg.id)}
+                      className={selectedMessageId === msg.id ? 'selected' : ''}
+                    >
+                      {selectedMessageId === msg.id ? 'Selected for Reply' : 'Reply Here'}
+                    </button>
+                  )}
+                  {msg.children.length > 1 && (
+                    <span className="branch-indicator">
+                      {msg.children.length} branches
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
+        ))}
+      </div>
+      <div className="chat-container">
+        <div className="messages">
+          {messages.map((msg) => (
+            <div 
+              key={msg.id} 
+              className={`message ${msg.role}`}
+            >
+              <strong>{msg.role === 'user' ? 'You' : 'Assistant'}:</strong>
+              <p>{msg.content}</p>
+            </div>
+          ))}
           {isLoading && <div className="loading">Assistant is typing...</div>}
           {error && <div className="error">Error: {error}</div>}
         </div>
