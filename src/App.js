@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { ReactFlowProvider } from 'reactflow';
 import GraphView from './components/GraphView';
 import './App.css';
 
@@ -20,93 +21,9 @@ function App() {
   const [error, setError] = useState(null);
   const [selectedMessageId, setSelectedMessageId] = useState(null);
   const responseRef = useRef('');
-  const [gridPosition, setGridPosition] = useState({ x: 5000, y: 5000 });
+  const [gridPosition, setGridPosition] = useState({ x: 0, y: 0 });
   const [gridScale, setGridScale] = useState(1);
-  const isDragging = useRef(false);
-  const lastPosition = useRef({ x: 0, y: 0 });
-  const mouseDownPosition = useRef({ x: 0, y: 0 });
-  const clickedNodeId = useRef(null);
-
-  const handleMouseDown = (e, nodeId = null) => {
-    e.preventDefault(); // Prevent text selection while dragging
-    mouseDownPosition.current = { x: e.clientX, y: e.clientY };
-    lastPosition.current = { x: e.clientX, y: e.clientY };
-    clickedNodeId.current = nodeId;
-  };
-
-  const handleMouseMove = (e) => {
-    if (!lastPosition.current) return;
-    
-    // Calculate distance moved
-    const deltaX = e.clientX - mouseDownPosition.current.x;
-    const deltaY = e.clientY - mouseDownPosition.current.y;
-    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    
-    // If moved more than 5 pixels, start dragging
-    if (!isDragging.current && distance > 5) {
-      isDragging.current = true;
-      clickedNodeId.current = null; // Cancel the click
-    }
-    
-    if (!isDragging.current) return;
-    e.preventDefault(); // Prevent text selection while dragging
-    
-    // Calculate the actual movement since last frame
-    const moveDeltaX = e.clientX - lastPosition.current.x;
-    const moveDeltaY = e.clientY - lastPosition.current.y;
-    
-    // Update position based on the delta from last frame
-    handleUpdatePosition(
-      gridPosition.x + moveDeltaX,
-      gridPosition.y + moveDeltaY
-    );
-    
-    // Update last position for next frame
-    lastPosition.current = { x: e.clientX, y: e.clientY };
-  };
-
-  const handleMouseUp = (e) => {
-    if (!isDragging.current && clickedNodeId.current !== null) {
-      handleBranch(clickedNodeId.current);
-    }
-    isDragging.current = false;
-    lastPosition.current = null;
-    clickedNodeId.current = null;
-  };
-
-  const handleUpdatePosition = (x, y) => {
-    console.log('App: Updating position to:', { x, y });
-    setGridPosition({ x, y });
-  };
-
-  const handleUpdateScale = (newScale) => {
-    console.log('App: Updating scale to:', newScale);
-    setGridScale(newScale);
-  };
-
-  useEffect(() => {
-    const preventDefault = (e) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-      }
-    };
-    window.addEventListener('wheel', preventDefault, { passive: false });
-
-    // Add global mouse event listeners
-    const handleGlobalMouseUp = () => {
-      console.log('App: Global mouse up, setting isDragging to:', false);
-      isDragging.current = false;
-    };
-
-    window.addEventListener('mouseup', handleGlobalMouseUp);
-    window.addEventListener('mouseleave', handleGlobalMouseUp);
-
-    return () => {
-      window.removeEventListener('wheel', preventDefault);
-      window.removeEventListener('mouseup', handleGlobalMouseUp);
-      window.removeEventListener('mouseleave', handleGlobalMouseUp);
-    };
-  }, []);
+  const [previewMessageId, setPreviewMessageId] = useState(null);
 
   // Get messages in the current conversation path
   const getCurrentPathMessages = () => {
@@ -145,6 +62,9 @@ function App() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
+
+    // Clear preview message immediately
+    setPreviewMessageId(null);
 
     const parentId = selectedMessageId || getCurrentPathMessages().slice(-1)[0]?.id;
     const newMessageId = Date.now().toString();
@@ -271,6 +191,17 @@ function App() {
     const node = messageGraph.nodes[messageId];
     if (!node) return;
 
+    // If clicking on a different node, clear the preview
+    if (messageId !== selectedMessageId) {
+      setPreviewMessageId(null);
+    }
+
+    // Only create preview node for assistant messages
+    if (node.role === 'assistant') {
+      const previewId = 'preview';
+      setPreviewMessageId(previewId);
+    }
+
     // Find path from root to this message
     const newPath = [];
     let currentId = messageId;
@@ -312,19 +243,16 @@ function App() {
 
   return (
     <div className="App">
-      <GraphView 
-        messageGraph={messageGraph}
-        selectedMessageId={selectedMessageId}
-        handleBranch={handleBranch}
-        gridPosition={gridPosition}
-        gridScale={gridScale}
-        isDragging={isDragging}
-        handleMouseDown={handleMouseDown}
-        handleMouseMove={handleMouseMove}
-        handleMouseUp={handleMouseUp}
-        handleUpdatePosition={handleUpdatePosition}
-        handleUpdateScale={handleUpdateScale}
-      />
+      <ReactFlowProvider>
+        <GraphView 
+          messageGraph={messageGraph}
+          selectedMessageId={selectedMessageId}
+          handleBranch={handleBranch}
+          gridPosition={gridPosition}
+          gridScale={gridScale}
+          previewMessageId={previewMessageId}
+        />
+      </ReactFlowProvider>
       <div className="chat-container">
         <div className="messages">
           {messages.map((msg) => (
