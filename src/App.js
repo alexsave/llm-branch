@@ -19,19 +19,64 @@ function App() {
   const [error, setError] = useState(null);
   const [selectedMessageId, setSelectedMessageId] = useState(null);
   const responseRef = useRef('');
+  const [gridPosition, setGridPosition] = useState({ x: 0, y: 0 });
+  const [gridScale, setGridScale] = useState(1);
+  const isDragging = useRef(false);
+  const lastPosition = useRef({ x: 0, y: 0 });
+
+  const handleMouseDown = (e) => {
+    isDragging.current = true;
+    lastPosition.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging.current) return;
+    
+    const deltaX = e.clientX - lastPosition.current.x;
+    const deltaY = e.clientY - lastPosition.current.y;
+    
+    setGridPosition(prev => ({
+      x: prev.x + deltaX,
+      y: prev.y + deltaY
+    }));
+    
+    lastPosition.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleMouseUp = () => {
+    isDragging.current = false;
+  };
+
+  const handleWheel = (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      setGridScale(prev => Math.min(Math.max(0.5, prev * delta), 2));
+    }
+  };
+
+  useEffect(() => {
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    return () => window.removeEventListener('wheel', handleWheel);
+  }, []);
 
   // Get messages in the current conversation path
   const getCurrentPathMessages = () => {
     const messages = [];
     let currentId = messageGraph.root;
     
+    // If a message is selected, only show messages up to that point
+    const endId = selectedMessageId || Object.keys(messageGraph.nodes).find(id => {
+      const node = messageGraph.nodes[id];
+      return messageGraph.currentPath.includes(id) && !node.activeChild;
+    });
+    
     while (currentId) {
       const node = messageGraph.nodes[currentId];
       if (!node) break;
       messages.push(node);
-      currentId = messageGraph.currentPath.includes(currentId) 
-        ? node.activeChild 
-        : null;
+      if (currentId === endId) break;
+      currentId = node.activeChild;
     }
     return messages;
   };
@@ -172,7 +217,7 @@ function App() {
 
   const handleBranch = (messageId) => {
     const node = messageGraph.nodes[messageId];
-    if (!node) return;
+    if (!node || node.role === 'user') return; // Prevent selecting user messages
 
     // Find path from root to this message
     const newPath = [];
@@ -223,7 +268,18 @@ function App() {
 
   return (
     <div className="App">
-      <div className="grid-background" />
+      <div 
+        className="grid-background" 
+        style={{
+          transform: `translate(${gridPosition.x}px, ${gridPosition.y}px) scale(${gridScale})`,
+          transformOrigin: 'center',
+          cursor: isDragging.current ? 'grabbing' : 'grab'
+        }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      />
       <div className="graph-container">
         {levels.map((level, levelIndex) => (
           <div key={levelIndex} className="graph-level">
@@ -231,17 +287,13 @@ function App() {
               <div 
                 key={msg.id} 
                 className={`message ${msg.role} ${selectedMessageId === msg.id ? 'selected' : ''} ${messageGraph.currentPath.includes(msg.id) ? 'active' : ''}`}
+                onClick={() => handleBranch(msg.id)}
               >
                 <strong>{msg.role === 'user' ? 'You' : 'Assistant'}:</strong>
                 <p>{msg.content}</p>
                 <div className="message-actions">
                   {msg.role === 'assistant' && (
-                    <button 
-                      onClick={() => handleBranch(msg.id)}
-                      className={selectedMessageId === msg.id ? 'selected' : ''}
-                    >
-                      {selectedMessageId === msg.id ? 'Selected for Reply' : 'Reply Here'}
-                    </button>
+                    <span className="reply-label">Click to reply</span>
                   )}
                   {msg.children.length > 1 && (
                     <span className="branch-indicator">
@@ -259,28 +311,38 @@ function App() {
           {messages.map((msg) => (
             <div 
               key={msg.id} 
-              className={`message ${msg.role}`}
+              className={`message ${msg.role} ${selectedMessageId === msg.id ? 'selected' : ''}`}
+              onClick={() => handleBranch(msg.id)}
             >
               <strong>{msg.role === 'user' ? 'You' : 'Assistant'}:</strong>
               <p>{msg.content}</p>
             </div>
           ))}
-          {isLoading && <div className="loading">Assistant is typing...</div>}
-          {error && <div className="error">Error: {error}</div>}
         </div>
-        <form onSubmit={handleSubmit} className="input-form">
-          <input
-            type="text"
+        <form className="input-form" onSubmit={handleSubmit}>
+          <textarea
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={selectedMessageId ? "Reply to selected message..." : "Type your message..."}
-            disabled={isLoading}
+            onChange={(e) => {
+              setInput(e.target.value);
+              // Auto-resize
+              e.target.style.height = 'inherit';
+              e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
+            }}
+            placeholder="Type your message..."
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+              }
+            }}
           />
           <button type="submit" disabled={isLoading || !input.trim()}>
             Send
           </button>
         </form>
       </div>
+      {isLoading && <div className="loading">Thinking...</div>}
+      {error && <div className="error">{error}</div>}
     </div>
   );
 }
