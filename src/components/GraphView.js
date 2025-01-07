@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
 import ReactFlow, {
-  MiniMap,
   Controls,
   Background,
   useNodesState,
@@ -170,15 +169,6 @@ const GraphView = ({
       >
         <Background color="rgba(255, 255, 255, 0.1)" gap={40} />
         <Controls />
-        <MiniMap
-          style={{
-            backgroundColor: 'rgba(30, 30, 30, 0.9)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-          }}
-          nodeColor={(node) => {
-            return node.data.message.role === 'user' ? 'rgba(33, 150, 243, 0.3)' : 'rgba(255, 255, 255, 0.1)';
-          }}
-        />
       </ReactFlow>
     </div>
   );

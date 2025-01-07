@@ -7,7 +7,7 @@ const MessageNode = ({ data }) => {
   const isPreview = message.isPreview;
 
   return (
-    <div
+    <div 
       className={`message ${message.role} ${isSelected ? 'selected' : ''} ${isActive ? 'active' : ''} ${isPreview ? 'preview' : ''}`}
       onClick={() => isAssistant && onBranch(message.id)}
       style={{

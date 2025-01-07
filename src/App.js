@@ -20,6 +20,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedMessageId, setSelectedMessageId] = useState(null);
+  const [isChatVisible, setIsChatVisible] = useState(true);
   const responseRef = useRef('');
   const [gridPosition, setGridPosition] = useState({ x: 0, y: 0 });
   const [gridScale, setGridScale] = useState(1);
@@ -191,6 +192,9 @@ function App() {
     const node = messageGraph.nodes[messageId];
     if (!node) return;
 
+    // Show chat when a node is clicked
+    setIsChatVisible(true);
+
     // If clicking on a different node, clear the preview
     if (messageId !== selectedMessageId) {
       setPreviewMessageId(null);
@@ -253,7 +257,14 @@ function App() {
           previewMessageId={previewMessageId}
         />
       </ReactFlowProvider>
-      <div className="chat-container">
+      <div className={`chat-container ${isChatVisible ? 'visible' : 'hidden'}`}>
+        <button 
+          className="chat-toggle"
+          onClick={() => setIsChatVisible(!isChatVisible)}
+          aria-label={isChatVisible ? 'Hide chat' : 'Show chat'}
+        >
+          {isChatVisible ? '×' : '💬'}
+        </button>
         <div className="messages">
           {messages.map((msg) => (
             <div 
