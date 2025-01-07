@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTreeLayout } from '../hooks/useTreeLayout';
 
 const MIN_SCALE = 0.2;
@@ -21,6 +21,7 @@ const GraphView = ({
   const containerRef = useRef(null);
   const lastPosition = useRef({ x: 0, y: 0 });
   const nodeBoundaries = useRef(new Map());
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const { positions, curves, bounds, width, height, center } = useTreeLayout(messageGraph);
 
   const isClickInsideNode = (clientX, clientY) => {
@@ -105,17 +106,36 @@ const GraphView = ({
       const latestPosition = positions.get(latestMessageId);
       
       if (latestPosition) {
-        // Center on the latest message
-        const centerX = (containerRect.width / 2) - (latestPosition.x * fitScale);
-        const centerY = (containerRect.height / 2) - (latestPosition.y * fitScale);
-        handleUpdatePosition(centerX, centerY);
-        handleUpdateScale(fitScale);
+        // Check if the new node would be visible in the current view
+        const nodeX = latestPosition.x * gridScale + gridPosition.x;
+        const nodeY = latestPosition.y * gridScale + gridPosition.y;
+        
+        const margin = 100; // Add some margin to ensure node is comfortably in view
+        const isVisible = 
+          nodeX >= margin && 
+          nodeX <= containerRect.width - margin &&
+          nodeY >= margin && 
+          nodeY <= containerRect.height - margin;
+
+        if (!isVisible) {
+          // Center on the latest message only if it's not visible
+          setIsTransitioning(true);
+          const centerX = (containerRect.width / 2) - (latestPosition.x * fitScale);
+          const centerY = (containerRect.height / 2) - (latestPosition.y * fitScale);
+          handleUpdatePosition(centerX, centerY);
+          handleUpdateScale(fitScale);
+          // Remove transition class after animation completes
+          setTimeout(() => setIsTransitioning(false), 500);
+        }
       } else if (!messageGraph.root || gridPosition.x === 0 && gridPosition.y === 0) {
         // Initial centering for first message
+        setIsTransitioning(true);
         const centerX = (containerRect.width / 2) - (center.x * fitScale);
         const centerY = (containerRect.height / 2) - (center.y * fitScale);
         handleUpdatePosition(centerX, centerY);
         handleUpdateScale(fitScale);
+        // Remove transition class after animation completes
+        setTimeout(() => setIsTransitioning(false), 500);
       }
     }
   }, [width, height, center, messageGraph.root, messageGraph.currentPath]);
@@ -195,7 +215,7 @@ const GraphView = ({
       }}
     >
       <div 
-        className="graph-content"
+        className={`graph-content ${isTransitioning ? 'transitioning' : ''}`}
         style={{
           position: 'absolute',
           top: 0,
