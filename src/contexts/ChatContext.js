@@ -22,6 +22,7 @@ export const ChatProvider = ({ children }) => {
     ollamaUrl: 'http://localhost:11434',
     ollamaModelName: 'llama3.2',
     openaiModel: 'gpt-3.5-turbo',
+    anthropicModel: 'claude-3-opus-20240229',
   });
   const responseRef = useRef('');
 
@@ -164,20 +165,23 @@ export const ChatProvider = ({ children }) => {
             break;
 
           case 'claude-2':
+          case 'anthropic':
             response = await fetch('https://api.anthropic.com/v1/messages', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'x-api-key': modelSettings.apiKey,
                 'anthropic-version': '2023-06-01',
+                'anthropic-dangerous-direct-browser-access': 'true'
               },
               body: JSON.stringify({
-                model: 'claude-2',
+                model: modelSettings.anthropicModel,
+                max_tokens: 1024,
                 messages: messages.map(msg => ({
                   role: msg.role === 'user' ? 'user' : 'assistant',
-                  content: msg.content,
+                  content: msg.content
                 })),
-                stream: true,
+                stream: true
               }),
             });
             break;
@@ -236,9 +240,10 @@ export const ChatProvider = ({ children }) => {
                   if (data.choices?.[0]?.delta?.content) {
                     responseRef.current += data.choices[0].delta.content;
                   }
-                } else if (modelSettings.selectedModel === 'claude-2') {
-                  if (data.content) {
-                    responseRef.current += data.content;
+                } else if (modelSettings.selectedModel === 'anthropic' || modelSettings.selectedModel === 'claude-2') {
+                  // Handle Anthropic's streaming format
+                  if (data.type === 'content_block_delta' && data.delta?.type === 'text_delta') {
+                    responseRef.current += data.delta.text;
                   }
                 }
               } else if (modelSettings.selectedModel === 'ollama') {

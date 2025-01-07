@@ -13,6 +13,7 @@ const ModelSettings = ({ onClose }) => {
       ollamaUrl: e.target.value === 'ollama' ? 'http://localhost:11434' : '',
       ollamaModelName: e.target.value === 'ollama' ? 'llama3.2' : '',
       openaiModel: e.target.value === 'openai' ? 'gpt-3.5-turbo' : '',
+      anthropicModel: e.target.value === 'anthropic' ? 'claude-3-opus-20240229' : '',
     });
   };
 
@@ -44,6 +45,13 @@ const ModelSettings = ({ onClose }) => {
     });
   };
 
+  const handleAnthropicModelChange = (e) => {
+    updateModelSettings({
+      ...modelSettings,
+      anthropicModel: e.target.value,
+    });
+  };
+
   return (
     <div className="model-settings">
       <div className="settings-header">
@@ -60,7 +68,7 @@ const ModelSettings = ({ onClose }) => {
           >
             <option value="gpt-3.5-turbo">Default Server (GPT-3.5)</option>
             <option value="openai">OpenAI</option>
-            <option value="claude-2">Claude 2</option>
+            <option value="anthropic">Anthropic</option>
             <option value="ollama">Ollama</option>
           </select>
         </div>
@@ -122,20 +130,36 @@ const ModelSettings = ({ onClose }) => {
               </small>
             </div>
           </>
-        ) : modelSettings.selectedModel === 'claude-2' && (
-          <div className="setting-group">
-            <label htmlFor="api-key">Anthropic API Key:</label>
-            <input
-              type="password"
-              id="api-key"
-              value={modelSettings.apiKey || ''}
-              onChange={handleApiKeyChange}
-              placeholder="Enter your Anthropic API key"
-            />
-            <small className="api-key-note">
-              Required for using Claude 2
-            </small>
-          </div>
+        ) : modelSettings.selectedModel === 'anthropic' && (
+          <>
+            <div className="setting-group">
+              <label htmlFor="anthropic-model">Anthropic Model:</label>
+              <select
+                id="anthropic-model"
+                value={modelSettings.anthropicModel}
+                onChange={handleAnthropicModelChange}
+              >
+                <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
+                <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                <option value="claude-2.1">Claude 2.1</option>
+                <option value="claude-2.0">Claude 2.0</option>
+              </select>
+            </div>
+            <div className="setting-group">
+              <label htmlFor="api-key">Anthropic API Key:</label>
+              <input
+                type="password"
+                id="api-key"
+                value={modelSettings.apiKey || ''}
+                onChange={handleApiKeyChange}
+                placeholder="Enter your Anthropic API key"
+              />
+              <small className="api-key-note">
+                Required for using Anthropic models
+              </small>
+            </div>
+          </>
         )}
       </div>
     </div>
