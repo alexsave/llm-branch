@@ -20,7 +20,74 @@ const GraphView = ({
 }) => {
   const containerRef = useRef(null);
   const lastPosition = useRef({ x: 0, y: 0 });
+  const nodeBoundaries = useRef(new Map());
   const { positions, curves, bounds, width, height, center } = useTreeLayout(messageGraph);
+
+  const isClickInsideNode = (clientX, clientY) => {
+    const container = containerRef.current;
+    if (!container) return null;
+
+    const rect = container.getBoundingClientRect();
+    // Convert client coordinates to graph space
+    const graphX = (clientX - rect.left - gridPosition.x) / gridScale;
+    const graphY = (clientY - rect.top - gridPosition.y) / gridScale;
+
+    // Check each node's boundaries
+    for (const [nodeId, boundary] of nodeBoundaries.current.entries()) {
+      if (graphX >= boundary.left && graphX <= boundary.right &&
+          graphY >= boundary.top && graphY <= boundary.bottom) {
+        return nodeId;
+      }
+    }
+    return null;
+  };
+
+  const handleLocalMouseDown = (e) => {
+    e.preventDefault();
+    const nodeId = isClickInsideNode(e.clientX, e.clientY);
+    lastPosition.current = { x: e.clientX, y: e.clientY };
+    handleMouseDown(e, nodeId);
+  };
+
+  useEffect(() => {
+    const handleGlobalMouseMove = (e) => {
+      handleMouseMove(e);
+    };
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mouseleave', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mouseleave', handleMouseUp);
+    };
+  }, [handleMouseMove, handleMouseUp]);
+
+  // Update node boundaries when positions change
+  useEffect(() => {
+    const newBoundaries = new Map();
+    const nodeElements = document.querySelectorAll('.message');
+    
+    nodeElements.forEach(element => {
+      const nodeId = element.getAttribute('data-node-id');
+      if (nodeId) {
+        const rect = element.getBoundingClientRect();
+        const container = containerRef.current.getBoundingClientRect();
+        
+        // Convert to graph space coordinates
+        const left = (rect.left - container.left - gridPosition.x) / gridScale;
+        const right = (rect.right - container.left - gridPosition.x) / gridScale;
+        const top = (rect.top - container.top - gridPosition.y) / gridScale;
+        const bottom = (rect.bottom - container.top - gridPosition.y) / gridScale;
+        
+        newBoundaries.set(nodeId, { left, right, top, bottom });
+      }
+    });
+    
+    nodeBoundaries.current = newBoundaries;
+  }, [positions, gridPosition.x, gridPosition.y, gridScale]);
 
   // Center the tree when it updates
   useEffect(() => {
@@ -103,28 +170,6 @@ const GraphView = ({
     }
   };
 
-  const handleLocalMouseDown = (e) => {
-    e.preventDefault();
-    lastPosition.current = { x: e.clientX, y: e.clientY };
-    handleMouseDown(e);
-  };
-
-  useEffect(() => {
-    const handleGlobalMouseMove = (e) => {
-      handleMouseMove(e);
-    };
-
-    window.addEventListener('mousemove', handleGlobalMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    window.addEventListener('mouseleave', handleMouseUp);
-
-    return () => {
-      window.removeEventListener('mousemove', handleGlobalMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      window.removeEventListener('mouseleave', handleMouseUp);
-    };
-  }, [handleMouseMove, handleMouseUp]);
-
   return (
     <div 
       ref={containerRef}
@@ -196,6 +241,7 @@ const GraphView = ({
             return (
               <div
                 key={nodeId}
+                data-node-id={nodeId}
                 className={`message ${node.role} ${selectedMessageId === nodeId ? 'selected' : ''} ${pos.isActive ? 'active' : ''}`}
                 style={{
                   position: 'absolute',
@@ -203,7 +249,6 @@ const GraphView = ({
                   top: pos.y,
                   transform: 'translate(-50%, 0)',
                 }}
-                onClick={() => handleBranch(nodeId)}
               >
                 <strong>{node.role === 'user' ? 'You' : 'Assistant'}:</strong>
                 <p>{node.content}</p>

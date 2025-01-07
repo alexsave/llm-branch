@@ -24,23 +24,38 @@ function App() {
   const [gridScale, setGridScale] = useState(1);
   const isDragging = useRef(false);
   const lastPosition = useRef({ x: 0, y: 0 });
+  const mouseDownPosition = useRef({ x: 0, y: 0 });
+  const clickedNodeId = useRef(null);
 
-  const handleMouseDown = (e) => {
+  const handleMouseDown = (e, nodeId = null) => {
     e.preventDefault(); // Prevent text selection while dragging
-    isDragging.current = true;
+    mouseDownPosition.current = { x: e.clientX, y: e.clientY };
     lastPosition.current = { x: e.clientX, y: e.clientY };
-    console.log('App: Mouse down, setting isDragging to:', true);
+    clickedNodeId.current = nodeId;
   };
 
   const handleMouseMove = (e) => {
+    if (!lastPosition.current) return;
+    
+    // Calculate distance moved
+    const deltaX = e.clientX - mouseDownPosition.current.x;
+    const deltaY = e.clientY - mouseDownPosition.current.y;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    
+    // If moved more than 5 pixels, start dragging
+    if (!isDragging.current && distance > 5) {
+      isDragging.current = true;
+      clickedNodeId.current = null; // Cancel the click
+    }
+    
     if (!isDragging.current) return;
     e.preventDefault(); // Prevent text selection while dragging
     
-    const deltaX = e.clientX - lastPosition.current.x;
-    const deltaY = e.clientY - lastPosition.current.y;
+    const moveDeltaX = e.clientX - lastPosition.current.x;
+    const moveDeltaY = e.clientY - lastPosition.current.y;
     
-    const newX = gridPosition.x + deltaX;
-    const newY = gridPosition.y + deltaY;
+    const newX = gridPosition.x + moveDeltaX;
+    const newY = gridPosition.y + moveDeltaY;
     
     // Constrain the position to keep the graph within bounds
     const containerWidth = window.innerWidth - 420; // Account for chat container
@@ -53,9 +68,13 @@ function App() {
     lastPosition.current = { x: e.clientX, y: e.clientY };
   };
 
-  const handleMouseUp = () => {
-    console.log('App: Mouse up, setting isDragging to:', false);
+  const handleMouseUp = (e) => {
+    if (!isDragging.current && clickedNodeId.current !== null) {
+      handleBranch(clickedNodeId.current);
+    }
     isDragging.current = false;
+    lastPosition.current = null;
+    clickedNodeId.current = null;
   };
 
   const handleUpdatePosition = (x, y) => {
@@ -253,7 +272,7 @@ function App() {
 
   const handleBranch = (messageId) => {
     const node = messageGraph.nodes[messageId];
-    if (!node || node.role === 'user') return; // Prevent selecting user messages
+    if (!node) return;
 
     // Find path from root to this message
     const newPath = [];
@@ -263,10 +282,32 @@ function App() {
       currentId = messageGraph.nodes[currentId]?.parentId;
     }
 
-    setMessageGraph(prev => ({
-      ...prev,
-      currentPath: newPath,
-    }));
+    // Update both currentPath and activeChild for each node in the path
+    setMessageGraph(prev => {
+      const newNodes = { ...prev.nodes };
+      
+      // Reset all activeChild pointers
+      Object.values(newNodes).forEach(node => {
+        node.activeChild = null;
+      });
+      
+      // Set activeChild for each parent in the path
+      for (let i = 0; i < newPath.length - 1; i++) {
+        const parentId = newPath[i];
+        const childId = newPath[i + 1];
+        newNodes[parentId] = {
+          ...newNodes[parentId],
+          activeChild: childId
+        };
+      }
+      
+      return {
+        ...prev,
+        nodes: newNodes,
+        currentPath: newPath,
+      };
+    });
+    
     setSelectedMessageId(messageId);
   };
 
