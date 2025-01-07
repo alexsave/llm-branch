@@ -1,5 +1,6 @@
 import React from 'react';
 import { useChat } from '../contexts/ChatContext';
+import ModelSettings from './ModelSettings';
 
 const ChatContainer = () => {
   const {
@@ -9,6 +10,8 @@ const ChatContainer = () => {
     error,
     isChatVisible,
     setIsChatVisible,
+    showSettings,
+    setShowSettings,
     handleSubmit,
     selectedMessageId,
     handleBranch,
@@ -63,26 +66,40 @@ const ChatContainer = () => {
           </div>
         ))}
       </div>
-      <form className="input-form" onSubmit={handleSubmit}>
-        <textarea
-          value={input}
-          onChange={(e) => {
-            setInput(e.target.value);
-            e.target.style.height = 'inherit';
-            e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
-          }}
-          placeholder="Type your message..."
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSubmit(e);
-            }
-          }}
-        />
-        <button type="submit" disabled={isLoading || !input.trim()}>
-          Send
-        </button>
-      </form>
+      {showSettings ? (
+        <ModelSettings onClose={() => setShowSettings(false)} />
+      ) : (
+        <form className="input-form" onSubmit={handleSubmit}>
+          <textarea
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              e.target.style.height = 'inherit';
+              e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
+            }}
+            placeholder="Type your message..."
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+              }
+            }}
+          />
+          <div className="button-group">
+            <button type="submit" disabled={isLoading || !input.trim()}>
+              Send
+            </button>
+            <button
+              type="button"
+              className="settings-button"
+              onClick={() => setShowSettings(true)}
+              aria-label="Settings"
+            >
+              ⚙️
+            </button>
+          </div>
+        </form>
+      )}
       {isLoading && <div className="loading">Thinking...</div>}
       {error && <div className="error">{error}</div>}
     </div>

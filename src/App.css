@@ -281,6 +281,11 @@
   background: rgba(33, 150, 243, 0.1);
 }
 
+.button-group {
+  display: flex;
+  gap: 8px;
+}
+
 .input-form button {
   padding: 12px 24px;
   background-color: #1976d2;
@@ -302,6 +307,92 @@
   background-color: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.3);
   cursor: not-allowed;
+}
+
+.settings-button {
+  background: rgba(255, 255, 255, 0.05) !important;
+  padding: 12px !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.settings-button:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Model Settings Panel */
+.model-settings {
+  padding: 15px;
+  background: rgba(30, 30, 30, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.settings-header h3 {
+  margin: 0;
+  font-size: 1.1em;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.5em;
+  cursor: pointer;
+  padding: 0 5px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.close-button:hover {
+  opacity: 1;
+}
+
+.settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.setting-group label {
+  font-size: 0.9em;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.setting-group select,
+.setting-group input {
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  font-size: 0.9em;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.setting-group select:focus,
+.setting-group input:focus {
+  outline: none;
+  border-color: rgba(33, 150, 243, 0.5);
+}
+
+.api-key-note {
+  font-size: 0.8em;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 2px;
 }
 
 .loading {
@@ -452,4 +543,12 @@
   .error {
     bottom: max(20px, env(safe-area-inset-bottom));
   }
+}
+
+/* Bottom container with settings and input */
+.bottom-container {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(20, 20, 20, 0.95);
+  display: flex;
+  flex-direction: column;
 }

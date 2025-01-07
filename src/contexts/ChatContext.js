@@ -15,6 +15,13 @@ export const ChatProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isChatVisible, setIsChatVisible] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [modelSettings, setModelSettings] = useState({
+    selectedModel: 'gpt-3.5-turbo',
+    apiKey: '',
+    ollamaUrl: 'http://localhost:11434',
+    ollamaModelName: 'llama3.2',
+  });
   const responseRef = useRef('');
 
   const {
@@ -26,6 +33,10 @@ export const ChatProvider = ({ children }) => {
     getLevels,
     handleBranch,
   } = useMessageGraph();
+
+  const updateModelSettings = (newSettings) => {
+    setModelSettings(newSettings);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -118,16 +129,78 @@ export const ChatProvider = ({ children }) => {
         }));
       };
 
-      const response = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/chat-stream`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_KEY}`,
-        },
-        body: JSON.stringify({
-          messages: getMessageHistory()
-        }),
-      });
+      const messages = getMessageHistory();
+
+      let response;
+      
+      if (modelSettings.selectedModel === 'gpt-3.5-turbo') {
+        // Use default server
+        response = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/chat-stream`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_KEY}`,
+          },
+          body: JSON.stringify({ messages }),
+        });
+      } else {
+        // Handle different model APIs
+        switch (modelSettings.selectedModel) {
+          case 'gpt-4':
+            response = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${modelSettings.apiKey}`,
+              },
+              body: JSON.stringify({
+                model: 'gpt-4',
+                messages,
+                stream: true,
+              }),
+            });
+            break;
+
+          case 'claude-2':
+            response = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': modelSettings.apiKey,
+                'anthropic-version': '2023-06-01',
+              },
+              body: JSON.stringify({
+                model: 'claude-2',
+                messages: messages.map(msg => ({
+                  role: msg.role === 'user' ? 'user' : 'assistant',
+                  content: msg.content,
+                })),
+                stream: true,
+              }),
+            });
+            break;
+
+          case 'ollama':
+            response = await fetch(`${modelSettings.ollamaUrl}/api/chat`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: modelSettings.ollamaModelName || 'llama2',
+                messages: messages.map(msg => ({
+                  role: msg.role,
+                  content: msg.content
+                })),
+                stream: true
+              }),
+            });
+            break;
+
+          default:
+            throw new Error('Unsupported model selected');
+        }
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -141,7 +214,37 @@ export const ChatProvider = ({ children }) => {
         if (done) break;
 
         const text = decoder.decode(value);
-        responseRef.current += text;
+        let chunk = text;
+
+        // Handle different streaming formats
+        if (modelSettings.selectedModel !== 'gpt-3.5-turbo') {
+          try {
+            const lines = text.split('\n').filter(line => line.trim());
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = JSON.parse(line.slice(6));
+                if (modelSettings.selectedModel.includes('gpt')) {
+                  chunk = data.choices[0]?.delta?.content || '';
+                } else if (modelSettings.selectedModel === 'claude-2') {
+                  chunk = data.content || '';
+                }
+              } else if (modelSettings.selectedModel === 'ollama') {
+                // Parse Ollama's JSON response directly
+                const data = JSON.parse(line);
+                // Skip the final stats message (when done is true)
+                if (!data.done) {
+                  chunk = data.message?.content || '';
+                } else {
+                  chunk = ''; // Don't append anything for the stats message
+                }
+              }
+            }
+          } catch (e) {
+            console.error('Error parsing streaming response:', e);
+          }
+        }
+
+        responseRef.current += chunk;
         
         // Update the assistant's message
         setMessageGraph(prev => {
@@ -170,6 +273,10 @@ export const ChatProvider = ({ children }) => {
     error,
     isChatVisible,
     setIsChatVisible,
+    showSettings,
+    setShowSettings,
+    modelSettings,
+    updateModelSettings,
     handleSubmit,
     messageGraph,
     selectedMessageId,
