@@ -324,7 +324,7 @@ const GraphView = () => {
     const latestMessageId = messageGraph.currentPath[messageGraph.currentPath.length - 1];
     if (latestMessageId) {
       // Use setTimeout to ensure nodes are rendered and dimensions are available
-      setTimeout(() => centerOnNode(latestMessageId), 0);
+      setTimeout(() => centerOnNode(latestMessageId), 100);
     }
   }, [messageGraph, centerOnNode, selectedMessageId, handleBranch]);
 
