@@ -1,5 +1,6 @@
 import React from 'react';
 import { Handle, Position } from 'reactflow';
+import ReactMarkdown from 'react-markdown';
 
 const MessageNode = ({ data }) => {
   const { message, isSelected, isActive, onBranch } = data;
@@ -17,7 +18,9 @@ const MessageNode = ({ data }) => {
     >
       <Handle type="target" position={Position.Top} />
       <strong>{message.role === 'user' ? 'You' : 'Assistant'}:</strong>
-      <p>{message.content}</p>
+      <div className="message-content">
+        <ReactMarkdown>{message.content}</ReactMarkdown>
+      </div>
       {!isPreview && isAssistant && (
         <div className="message-actions">
           <span className="reply-label">Click to reply</span>
