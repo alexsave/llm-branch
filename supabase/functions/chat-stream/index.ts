@@ -46,9 +46,12 @@ Deno.serve(async (req) => {
             for await (const part of stream) {
               const content = part.choices[0]?.delta?.content
               if (content) {
-                controller.enqueue(new TextEncoder().encode(content));
+                // Format as SSE event
+                const data = JSON.stringify({ choices: [{ delta: { content } }] });
+                controller.enqueue(new TextEncoder().encode(`data: ${data}\n\n`));
               }
             }
+            controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
             controller.close();
           },
         });

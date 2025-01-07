@@ -153,8 +153,38 @@
 }
 
 .message.user {
-  background: rgba(33, 150, 243, 0.1);
-  border-color: rgba(33, 150, 243, 0.3);
+  background: rgba(128, 128, 128, 0.1);
+  border-color: rgba(128, 128, 128, 0.3);
+}
+
+/* Model family specific styles */
+.message.assistant[data-model-family="openai"] {
+  border-color: #259c7a;
+  background: rgba(37, 156, 122, 0.1);
+}
+
+.message.assistant[data-model-family="anthropic"] {
+  border-color: #c2603d;
+  background: rgba(194, 96, 61, 0.1);
+}
+
+.message.assistant[data-model-family="ollama"] {
+  border-color: #132b42;
+  background: rgba(19, 43, 66, 0.1);
+}
+
+.message.assistant[data-model-family="default"] {
+  border-color: #808080;
+  background: rgba(128, 128, 128, 0.1);
+}
+
+.message .model-info {
+  position: absolute;
+  bottom: 8px;
+  left: 16px;
+  font-size: 0.8em;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: monospace;
 }
 
 .message.assistant {

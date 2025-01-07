@@ -60,9 +60,13 @@ const ChatContainer = () => {
             key={msg.id} 
             className={`message ${msg.role} ${selectedMessageId === msg.id ? 'selected' : ''}`}
             onClick={() => handleBranch(msg.id)}
+            data-model-family={msg.modelFamily}
           >
             <strong>{msg.role === 'user' ? 'You' : 'Assistant'}:</strong>
             <p>{msg.content}</p>
+            {msg.role === 'assistant' && (
+              <div className="model-info">{msg.model}</div>
+            )}
           </div>
         ))}
       </div>

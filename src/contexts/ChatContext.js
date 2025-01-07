@@ -98,6 +98,14 @@ export const ChatProvider = ({ children }) => {
         parentId: newMessageId,
         children: [],
         activeChild: null,
+        modelFamily: modelSettings.selectedModel === 'openai' ? 'openai' :
+                    modelSettings.selectedModel === 'anthropic' ? 'anthropic' :
+                    modelSettings.selectedModel === 'ollama' ? 'ollama' :
+                    'default',
+        model: modelSettings.selectedModel === 'openai' ? modelSettings.openaiModel :
+               modelSettings.selectedModel === 'anthropic' ? modelSettings.anthropicModel :
+               modelSettings.selectedModel === 'ollama' ? modelSettings.ollamaModelName :
+               'gpt-3.5-turbo'
       };
 
       // Add assistant message and new preview node
@@ -135,82 +143,86 @@ export const ChatProvider = ({ children }) => {
 
       let response;
       
-      if (modelSettings.selectedModel === 'gpt-3.5-turbo') {
-        // Use default server
-        response = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/chat-stream`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_KEY}`,
-          },
-          body: JSON.stringify({ messages }),
-        });
-      } else {
-        // Handle different model APIs
-        switch (modelSettings.selectedModel) {
-          case 'gpt-4':
-          case 'openai':
-            response = await fetch('https://api.openai.com/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${modelSettings.apiKey}`,
-              },
-              body: JSON.stringify({
-                model: modelSettings.openaiModel,
-                messages,
-                stream: true,
-              }),
-            });
-            break;
+      const modelFamily = modelSettings.selectedModel === 'openai' ? 'openai' :
+                         modelSettings.selectedModel === 'anthropic' ? 'anthropic' :
+                         modelSettings.selectedModel === 'ollama' ? 'ollama' :
+                         'default';
 
-          case 'claude-2':
-          case 'anthropic':
-            response = await fetch('https://api.anthropic.com/v1/messages', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': modelSettings.apiKey,
-                'anthropic-version': '2023-06-01',
-                'anthropic-dangerous-direct-browser-access': 'true'
-              },
-              body: JSON.stringify({
-                model: modelSettings.anthropicModel,
-                max_tokens: 1024,
-                messages: messages.map(msg => ({
-                  role: msg.role === 'user' ? 'user' : 'assistant',
-                  content: msg.content
-                })),
-                stream: true
-              }),
-            });
-            break;
+      switch (modelFamily) {
+        case 'default':
+          // Use default server
+          response = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/chat-stream`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_KEY}`,
+            },
+            body: JSON.stringify({ messages }),
+          });
+          break;
 
-          case 'ollama':
-            response = await fetch(`${modelSettings.ollamaUrl}/api/chat`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                model: modelSettings.ollamaModelName || 'llama2',
-                messages: messages.map(msg => ({
-                  role: msg.role,
-                  content: msg.content
-                })),
-                stream: true
-              }),
-            });
-            break;
+        case 'openai':
+          response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${modelSettings.apiKey}`,
+            },
+            body: JSON.stringify({
+              model: modelSettings.openaiModel,
+              messages,
+              stream: true,
+            }),
+          });
+          break;
 
-          default:
-            throw new Error('Unsupported model selected');
-        }
+        case 'anthropic':
+          response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': modelSettings.apiKey,
+              'anthropic-version': '2023-06-01',
+              'anthropic-dangerous-direct-browser-access': 'true'
+            },
+            body: JSON.stringify({
+              model: modelSettings.anthropicModel,
+              max_tokens: 1024,
+              messages: messages.map(msg => ({
+                role: msg.role === 'user' ? 'user' : 'assistant',
+                content: msg.content
+              })),
+              stream: true
+            }),
+          });
+          break;
+
+        case 'ollama':
+          response = await fetch(`${modelSettings.ollamaUrl}/api/chat`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: modelSettings.ollamaModelName || 'llama2',
+              messages: messages.map(msg => ({
+                role: msg.role,
+                content: msg.content
+              })),
+              stream: true
+            }),
+          });
+          break;
+
+        default:
+          throw new Error('Unsupported model family');
       }
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      console.log('Response received:', response);
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -221,44 +233,97 @@ export const ChatProvider = ({ children }) => {
         if (done) break;
 
         // Append new data to buffer and split into lines
-        buffer += decoder.decode(value, { stream: true });
+        const chunk = decoder.decode(value, { stream: true });
+        buffer += chunk;
+        console.log('Received chunk:', chunk);
+        
+        // For default server, process the chunk directly
+        if (modelFamily === 'default') {
+          responseRef.current += chunk;
+          console.log('Server response:', chunk);
+          
+          // Update the assistant's message
+          setMessageGraph(prev => {
+            const newNodes = {
+              ...prev.nodes,
+              [assistantMessageId]: {
+                ...prev.nodes[assistantMessageId],
+                content: responseRef.current,
+              },
+            };
+            return validateGraph(prev, newNodes, prev.currentPath);
+          });
+          continue;
+        }
+
         const lines = buffer.split('\n');
+        console.log('Split lines:', lines);
         
         // Process all complete lines
         buffer = lines.pop() || ''; // Keep the last incomplete line in the buffer
+        console.log('Remaining buffer:', buffer);
         
         for (const line of lines) {
           const trimmedLine = line.trim();
           if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
           
           try {
-            if (modelSettings.selectedModel !== 'gpt-3.5-turbo') {
-              if (trimmedLine.startsWith('data: ')) {
-                const data = JSON.parse(trimmedLine.slice(6));
-                if (modelSettings.selectedModel === 'openai' || modelSettings.selectedModel.includes('gpt')) {
-                  // Handle OpenAI streaming format
-                  if (data.choices?.[0]?.delta?.content) {
-                    responseRef.current += data.choices[0].delta.content;
-                  }
-                } else if (modelSettings.selectedModel === 'anthropic' || modelSettings.selectedModel === 'claude-2') {
+            if (trimmedLine.startsWith('data: ')) {
+              const data = JSON.parse(trimmedLine.slice(6));
+              const modelFamily = modelSettings.selectedModel === 'openai' ? 'openai' :
+                                modelSettings.selectedModel === 'anthropic' ? 'anthropic' :
+                                modelSettings.selectedModel === 'ollama' ? 'ollama' :
+                                'default';
+
+              console.log('Processing line:', { modelFamily, data, trimmedLine });
+
+              switch (modelFamily) {
+                case 'anthropic':
                   // Handle Anthropic's streaming format
                   if (data.type === 'content_block_delta' && data.delta?.type === 'text_delta') {
                     responseRef.current += data.delta.text;
+                    console.log('Anthropic delta:', data.delta.text);
                   }
-                }
-              } else if (modelSettings.selectedModel === 'ollama') {
-                // Parse Ollama's JSON response directly
-                const data = JSON.parse(trimmedLine);
-                if (!data.done && data.message?.content) {
-                  responseRef.current += data.message.content;
-                }
+                  break;
+
+                case 'openai':
+                  // Handle OpenAI format
+                  if (data.choices?.[0]?.delta?.content) {
+                    responseRef.current += data.choices[0].delta.content;
+                    console.log('OpenAI delta:', data.choices[0].delta.content);
+                  }
+                  break;
+
+                case 'default':
+                  // Server sends raw text chunks directly
+                  responseRef.current += trimmedLine;
+                  console.log('Server response:', trimmedLine);
+                  break;
               }
-            } else {
+            } else if (modelSettings.selectedModel === 'ollama') {
+              // Parse Ollama's JSON response directly (no data: prefix)
+              const data = JSON.parse(trimmedLine);
+              if (!data.done && data.message?.content) {
+                responseRef.current += data.message.content;
+                console.log('Ollama content:', data.message.content);
+              }
+            } else if (modelFamily === 'default') {
+              // Handle raw text for default server
               responseRef.current += trimmedLine;
+              console.log('Server response:', trimmedLine);
             }
           } catch (e) {
-            console.error('Error parsing streaming response:', e);
+            if (modelFamily === 'default') {
+              // For default server, handle raw text even if JSON parsing fails
+              responseRef.current += trimmedLine;
+              console.log('Server raw text (fallback):', trimmedLine);
+            } else {
+              console.error('Error parsing streaming response:', e, { line: trimmedLine });
+            }
           }
+
+          // Log the state update
+          console.log('Updating message graph with:', responseRef.current);
 
           // Update the assistant's message
           setMessageGraph(prev => {
