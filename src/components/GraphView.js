@@ -53,21 +53,24 @@ const GraphView = ({
       node.children.forEach(childId => {
         processNode(childId, level + 1);
         // Create edge
+        const isActive = messageGraph.nodes[nodeId]?.activeChild === childId && 
+                        messageGraph.currentPath.includes(nodeId) &&
+                        messageGraph.currentPath.includes(childId);
         newEdges.push({
           id: `${nodeId}-${childId}`,
           source: nodeId,
           target: childId,
           type: 'straight',
-          animated: messageGraph.nodes[nodeId]?.activeChild === childId,
+          animated: isActive,
           style: {
-            stroke: messageGraph.nodes[nodeId]?.activeChild === childId ? '#4caf50' : 'rgba(255, 255, 255, 0.2)',
-            strokeWidth: messageGraph.nodes[nodeId]?.activeChild === childId ? 2 : 1,
+            stroke: isActive ? '#4caf50' : 'rgba(255, 255, 255, 0.2)',
+            strokeWidth: isActive ? 2 : 1,
           },
         });
       });
 
       // Add preview node if this is the selected node
-      if (nodeId === selectedMessageId && previewMessageId) {
+      if (nodeId === selectedMessageId && previewMessageId && node.role === 'assistant') {
         const previewLevel = level + 1;
         if (!levels.has(previewLevel)) {
           levels.set(previewLevel, []);
@@ -76,14 +79,18 @@ const GraphView = ({
         processedNodes.set(previewMessageId, true);
 
         // Create edge to preview node
+        const isActive = messageGraph.nodes[nodeId]?.activeChild === previewMessageId &&
+                        messageGraph.currentPath.includes(nodeId) &&
+                        messageGraph.currentPath.includes(previewMessageId);
         newEdges.push({
           id: `${nodeId}-${previewMessageId}`,
           source: nodeId,
           target: previewMessageId,
           type: 'straight',
+          animated: isActive,
           style: {
-            stroke: 'rgba(255, 255, 255, 0.2)',
-            strokeWidth: 1,
+            stroke: isActive ? '#4caf50' : 'rgba(255, 255, 255, 0.2)',
+            strokeWidth: isActive ? 2 : 1,
             strokeDasharray: '5,5',
           },
         });

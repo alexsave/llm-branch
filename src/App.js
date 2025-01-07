@@ -22,8 +22,8 @@ function App() {
         activeChild: null,
       }
     },
-    root: 'preview', // Set preview as root initially
-    currentPath: ['preview'], // Include preview in current path
+    root: 'preview',
+    currentPath: ['preview'],
   });
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -34,6 +34,106 @@ function App() {
   const [gridPosition, setGridPosition] = useState({ x: 0, y: 0 });
   const [gridScale, setGridScale] = useState(1);
   const [previewMessageId, setPreviewMessageId] = useState('preview');
+
+  // Helper function to validate the entire graph state
+  const validateGraph = (prevState, newNodes, newPath) => {
+    // First validate all nodes
+    const validatedNodes = validateActiveChildren(newNodes, newPath);
+    
+    // Ensure path is valid (all nodes exist and are connected)
+    const validPath = newPath.filter(id => validatedNodes[id]);
+    
+    // Ensure root exists
+    const root = prevState.root === 'preview' && !validatedNodes.preview ? 
+      validPath[0] : prevState.root;
+
+    return {
+      nodes: validatedNodes,
+      root: root,
+      currentPath: validPath,
+    };
+  };
+
+  // Helper function to validate and clean activeChild pointers
+  const validateActiveChildren = (nodes, currentPath) => {
+    const newNodes = { ...nodes };
+    Object.entries(newNodes).forEach(([id, node]) => {
+      // Skip if node is undefined
+      if (!node) return;
+      
+      // Clear activeChild if:
+      // 1. Node has no children
+      // 2. activeChild isn't in children array
+      // 3. activeChild points to a non-existent node
+      // 4. Node is not in the current path
+      if (!node.children?.length || 
+          (node.activeChild && !node.children?.includes(node.activeChild)) ||
+          (node.activeChild && !newNodes[node.activeChild]) ||
+          !currentPath.includes(id)) {
+        newNodes[id] = {
+          ...node,
+          activeChild: null
+        };
+      }
+    });
+    return newNodes;
+  };
+
+  // Helper function to handle preview node logic
+  const handlePreviewNode = (nodes, assistantId, currentPath) => {
+    // Deep copy the nodes
+    const newNodes = JSON.parse(JSON.stringify(nodes));
+    
+    // First, remove all preview nodes
+    Object.entries(newNodes)
+      .filter(([id]) => id.startsWith('preview-'))
+      .forEach(([id]) => {
+        delete newNodes[id];
+      });
+
+    // Remove preview from all assistant nodes' children
+    Object.entries(newNodes)
+      .filter(([_, node]) => node.role === 'assistant')
+      .forEach(([id, node]) => {
+        newNodes[id] = {
+          ...node,
+          children: node.children.filter(childId => !childId.startsWith('preview-')),
+          activeChild: node.activeChild?.startsWith('preview-') ? null : node.activeChild
+        };
+      });
+
+    // Check if the target assistant has other children
+    const hasOtherChildren = newNodes[assistantId]?.children?.length > 0;
+    
+    if (!hasOtherChildren) {
+      // Create a new preview node with a unique ID
+      const previewId = `preview-${assistantId}`;
+      
+      // Add preview to current assistant
+      newNodes[assistantId] = {
+        ...newNodes[assistantId],
+        children: [previewId],
+        activeChild: previewId,
+      };
+
+      // Create new preview node
+      newNodes[previewId] = {
+        id: previewId,
+        role: 'user',
+        content: '',
+        parentId: assistantId,
+        children: [],
+        activeChild: null,
+      };
+
+      // Add preview to path if not already there
+      if (!currentPath.includes(previewId)) {
+        currentPath.push(previewId);
+      }
+    }
+
+    return { nodes: newNodes, path: currentPath };
+  };
 
   // Get messages in the current conversation path
   const getCurrentPathMessages = () => {
@@ -73,8 +173,8 @@ function App() {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    // Get the parent ID before removing preview
-    const parentId = messageGraph.nodes.preview.parentId;
+    // Get the parent ID - either from the selected message or from the preview node's parent
+    const parentId = selectedMessageId || messageGraph.nodes.preview?.parentId;
     
     // Remove preview node and create user message
     const newMessageId = Date.now().toString();
@@ -89,22 +189,27 @@ function App() {
 
     // Update graph with new message
     setMessageGraph(prev => {
-      const { preview, ...otherNodes } = prev.nodes;
+      // Deep copy the nodes
+      const { preview, ...otherNodes } = JSON.parse(JSON.stringify(prev.nodes));
       const newNodes = { ...otherNodes, [newMessageId]: userMessage };
       
       if (parentId) {
         newNodes[parentId] = {
           ...newNodes[parentId],
-          children: [...newNodes[parentId].children, newMessageId],
+          children: [...(newNodes[parentId]?.children?.filter(id => id !== 'preview') || []), newMessageId],
           activeChild: newMessageId,
         };
       }
       
-      return {
-        nodes: newNodes,
-        root: prev.root === 'preview' ? newMessageId : prev.root,
-        currentPath: prev.currentPath.map(id => id === 'preview' ? newMessageId : id),
-      };
+      // Build new path from root to new message
+      const newPath = [];
+      let currentId = newMessageId;
+      while (currentId) {
+        newPath.unshift(currentId);
+        currentId = newNodes[currentId]?.parentId;
+      }
+      
+      return validateGraph(prev, newNodes, newPath);
     });
 
     setInput('');
@@ -127,14 +232,13 @@ function App() {
       // Add assistant message and new preview node
       setMessageGraph(prev => {
         const newPath = [...prev.currentPath.filter(id => id !== 'preview'), assistantMessageId];
-        const newNodes = {
-          ...prev.nodes,
-          [assistantMessageId]: assistantMessage,
-          [newMessageId]: {
-            ...prev.nodes[newMessageId],
-            children: [...prev.nodes[newMessageId].children, assistantMessageId],
-            activeChild: assistantMessageId,
-          }
+        // Deep copy the nodes
+        const newNodes = JSON.parse(JSON.stringify(prev.nodes));
+        newNodes[assistantMessageId] = assistantMessage;
+        newNodes[newMessageId] = {
+          ...newNodes[newMessageId],
+          children: [...newNodes[newMessageId].children, assistantMessageId],
+          activeChild: assistantMessageId,
         };
 
         // Set activeChild pointers along the path
@@ -153,12 +257,7 @@ function App() {
           }
         }
 
-        return {
-          ...prev,
-          nodes: newNodes,
-          root: prev.root,
-          currentPath: newPath,
-        };
+        return validateGraph(prev, newNodes, newPath);
       });
 
       // Get messages up to the new user message
@@ -214,7 +313,6 @@ function App() {
             const newPath = [];
             let currentId = assistantMessageId;
             console.log('Building path from assistant ID:', assistantMessageId);
-            console.log('Assistant node:', prev.nodes[assistantMessageId]);
             
             while (currentId) {
               newPath.unshift(currentId);
@@ -225,17 +323,19 @@ function App() {
               console.log('Next parent:', currentId);
             }
             
-            console.log('Final path before preview:', newPath);
-            newPath.push('preview');
-            console.log('Path after adding preview:', newPath);
-            
             const newNodes = { ...prev.nodes };
             
+            // Reset all activeChild pointers first
             console.log('Resetting activeChild pointers');
-            // Reset all activeChild pointers
             Object.values(newNodes).forEach(node => {
               node.activeChild = null;
             });
+
+            // Handle preview node
+            const { nodes: updatedNodes, path: updatedPath } = handlePreviewNode(newNodes, assistantMessageId, newPath);
+            Object.assign(newNodes, updatedNodes);
+            newPath.length = 0;
+            newPath.push(...updatedPath);
             
             console.log('Setting new activeChild pointers');
             // Set activeChild for each parent in the path
@@ -243,7 +343,7 @@ function App() {
               const parentId = newPath[i];
               const childId = newPath[i + 1];
               console.log(`Setting ${parentId}'s activeChild to ${childId}`);
-              if (parentId && childId) {
+              if (parentId && childId && newNodes[parentId]?.children?.includes(childId)) {
                 newNodes[parentId] = {
                   ...newNodes[parentId],
                   activeChild: childId
@@ -251,27 +351,8 @@ function App() {
               }
             }
             
-            // Ensure preview node exists and is properly connected
-            const result = {
-              ...prev,
-              nodes: {
-                ...newNodes,
-                [assistantMessageId]: {
-                  ...newNodes[assistantMessageId],
-                  children: [...(newNodes[assistantMessageId]?.children || []), 'preview'],
-                  activeChild: 'preview'
-                },
-                preview: {
-                  id: 'preview',
-                  role: 'user',
-                  content: '',
-                  parentId: assistantMessageId,
-                  children: [],
-                  activeChild: null,
-                }
-              },
-              currentPath: newPath,
-            };
+            const result = validateGraph(prev, newNodes, newPath);
+
             console.log('Final result:', {
               nodes: Object.keys(result.nodes),
               currentPath: result.currentPath,
@@ -287,16 +368,16 @@ function App() {
         responseRef.current += text;
         
         // Update the assistant's message
-        setMessageGraph(prev => ({
-          ...prev,
-          nodes: {
+        setMessageGraph(prev => {
+          const newNodes = {
             ...prev.nodes,
             [assistantMessageId]: {
               ...prev.nodes[assistantMessageId],
               content: responseRef.current,
             },
-          },
-        }));
+          };
+          return validateGraph(prev, newNodes, prev.currentPath);
+        });
       }
     } catch (err) {
       setError(err.message);
@@ -313,54 +394,37 @@ function App() {
     // Show chat when a node is clicked
     setIsChatVisible(true);
 
-    // Find path from root to this message
-    const newPath = [];
-    let currentId = messageId;
-    while (currentId) {
-      newPath.unshift(currentId);
-      currentId = messageGraph.nodes[currentId]?.parentId;
-    }
-
-    // Add preview node to path if clicking an assistant message
-    if (node.role === 'assistant') {
-      newPath.push('preview');
-      // Update preview node's parent
-      setMessageGraph(prev => ({
-        ...prev,
-        nodes: {
-          ...prev.nodes,
-          preview: {
-            ...prev.nodes.preview,
-            parentId: messageId,
-          }
-        }
-      }));
-    }
-
-    // Update both currentPath and activeChild for each node in the path
+    // Single state update to handle all changes
     setMessageGraph(prev => {
       const newNodes = { ...prev.nodes };
       
-      // Reset all activeChild pointers
+      // Reset all activeChild pointers first
       Object.values(newNodes).forEach(node => {
         node.activeChild = null;
       });
+
+      // Handle preview node if clicking on assistant message
+      const newPath = [...prev.currentPath];
+      if (node.role === 'assistant') {
+        const { nodes: updatedNodes, path: updatedPath } = handlePreviewNode(newNodes, messageId, newPath);
+        Object.assign(newNodes, updatedNodes);
+        newPath.length = 0;
+        newPath.push(...updatedPath);
+      }
       
       // Set activeChild for each parent in the path
       for (let i = 0; i < newPath.length - 1; i++) {
         const parentId = newPath[i];
         const childId = newPath[i + 1];
-        newNodes[parentId] = {
-          ...newNodes[parentId],
-          activeChild: childId
-        };
+        if (parentId && childId && newNodes[parentId]?.children?.includes(childId)) {
+          newNodes[parentId] = {
+            ...newNodes[parentId],
+            activeChild: childId
+          };
+        }
       }
       
-      return {
-        ...prev,
-        nodes: newNodes,
-        currentPath: newPath,
-      };
+      return validateGraph(prev, newNodes, newPath);
     });
     
     setSelectedMessageId(messageId);
