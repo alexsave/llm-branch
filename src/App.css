@@ -637,3 +637,38 @@
   margin: 0.5em 0;
   font-weight: bold;
 }
+
+.message.active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* Model family specific styles for graph nodes */
+.react-flow__node-message .message[data-model-family="openai"] {
+  border-color: #259c7a;
+  background: rgba(37, 156, 122, 0.1);
+}
+
+.react-flow__node-message .message[data-model-family="anthropic"] {
+  border-color: #c2603d;
+  background: rgba(194, 96, 61, 0.1);
+}
+
+.react-flow__node-message .message[data-model-family="ollama"] {
+  border-color: #132b42;
+  background: rgba(19, 43, 66, 0.1);
+}
+
+.react-flow__node-message .message[data-model-family="default"] {
+  border-color: #808080;
+  background: rgba(128, 128, 128, 0.1);
+}
+
+.react-flow__node-message .message[data-model-family="user"] {
+  background: rgba(128, 128, 128, 0.1);
+  border-color: rgba(128, 128, 128, 0.3);
+}

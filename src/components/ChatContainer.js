@@ -1,6 +1,7 @@
 import React from 'react';
 import { useChat } from '../contexts/ChatContext';
 import ModelSettings from './ModelSettings';
+import Message from './Message';
 
 const ChatContainer = () => {
   const {
@@ -56,18 +57,14 @@ const ChatContainer = () => {
       )}
       <div className="messages">
         {messages.map((msg) => (
-          <div 
-            key={msg.id} 
-            className={`message ${msg.role} ${selectedMessageId === msg.id ? 'selected' : ''}`}
-            onClick={() => handleBranch(msg.id)}
-            data-model-family={msg.modelFamily}
-          >
-            <strong>{msg.role === 'user' ? 'You' : 'Assistant'}:</strong>
-            <p>{msg.content}</p>
-            {msg.role === 'assistant' && (
-              <div className="model-info">{msg.model}</div>
-            )}
-          </div>
+          <Message
+            key={msg.id}
+            message={msg}
+            isSelected={selectedMessageId === msg.id}
+            isActive={false}
+            onBranch={handleBranch}
+            isGraph={false}
+          />
         ))}
       </div>
       {showSettings ? (
