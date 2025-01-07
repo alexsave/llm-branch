@@ -93,7 +93,7 @@ const getLayoutedElements = (nodes, edges, direction = 'TB') => {
   g.setGraph({
     rankdir: direction,
     nodesep: 100,
-    ranksep: 250,  // Increased to handle taller nodes
+    ranksep: 50,  // Increased to handle taller nodes
     edgesep: 50,
     marginx: 50,
     marginy: 50,
