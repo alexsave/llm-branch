@@ -24,21 +24,6 @@ Deno.serve(async (req) => {
             messages,
             stream: true,
         });
-        /*const readableStream = new ReadableStream({
-            async start(controller) {
-                const decoder = new TextDecoder();
-                const encoder = new TextEncoder();
-                for await (const chunk of stream.toReadableStream()) {
-                    const text = decoder.decode(chunk);
-                    controller.enqueue(encoder.encode(`data: ${text}\n\n`));
-                }
-                controller.close();
-            },
-        });
-
-        return new Response(readableStream, {
-            headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-        });*/
 
         // Create and return the streaming response
         const readableStream = new ReadableStream({
@@ -46,12 +31,9 @@ Deno.serve(async (req) => {
             for await (const part of stream) {
               const content = part.choices[0]?.delta?.content
               if (content) {
-                // Format as SSE event
-                const data = JSON.stringify({ choices: [{ delta: { content } }] });
-                controller.enqueue(new TextEncoder().encode(`data: ${data}\n\n`));
+                controller.enqueue(new TextEncoder().encode(content));
               }
             }
-            controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
             controller.close();
           },
         });
