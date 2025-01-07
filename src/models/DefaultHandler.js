@@ -1,6 +1,28 @@
+import React from 'react';
 import BaseModelHandler from './BaseModelHandler';
 
+export const DEFAULT_MODELS = {
+  GPT_3_5_TURBO: 'gpt-3.5-turbo'
+};
+
 class DefaultHandler extends BaseModelHandler {
+  static defaultSettings = {
+    model: DEFAULT_MODELS.GPT_3_5_TURBO,
+    availableModels: Object.values(DEFAULT_MODELS)
+  };
+
+  static renderSettings(settings, onSettingChange) {
+    // Default server has no settings to configure
+    return null;
+  }
+
+  constructor(settings = {}) {
+    super({
+      ...DefaultHandler.defaultSettings,
+      ...settings
+    });
+  }
+
   async fetchCompletion(messages) {
     const response = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/chat-stream`, {
       method: 'POST',
@@ -28,20 +50,10 @@ class DefaultHandler extends BaseModelHandler {
     };
   }
 
-  async handleStream(response, responseRef, updateMessage) {
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value, { stream: true });
-      if (chunk.trim()) {
-        responseRef.current += chunk;
-        updateMessage(responseRef.current);
-      }
-    }
+  async processLine(line, responseRef) {
+    if (!line) return false;
+    responseRef.current += line;
+    return true;
   }
 }
 

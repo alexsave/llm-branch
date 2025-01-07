@@ -3,6 +3,10 @@ class BaseModelHandler {
     this.modelSettings = modelSettings;
   }
 
+  static renderSettings(settings, onSettingChange) {
+    throw new Error('renderSettings must be implemented by subclass');
+  }
+
   async fetchCompletion(messages) {
     throw new Error('fetchCompletion must be implemented by subclass');
   }
@@ -47,7 +51,6 @@ class BaseModelHandler {
       const chunk = decoder.decode(value, { stream: true });
       buffer += chunk;
 
-      // For event-stream format (data: prefixed messages), split and process line by line
       if (buffer.includes('\n')) {
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
@@ -59,7 +62,6 @@ class BaseModelHandler {
           }
         }
       } else {
-        // For raw text chunks, process the buffer directly
         const updated = await this.processLine(buffer, responseRef);
         if (updated) {
           updateMessage(responseRef.current);
@@ -68,7 +70,6 @@ class BaseModelHandler {
       }
     }
 
-    // Process any remaining buffer
     if (buffer) {
       const updated = await this.processLine(buffer, responseRef);
       if (updated) {

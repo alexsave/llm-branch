@@ -4,24 +4,28 @@ import OllamaHandler from './OllamaHandler';
 import DefaultHandler from './DefaultHandler';
 
 class ModelHandlerFactory {
-  static createHandler(modelSettings) {
-    const modelFamily = modelSettings.selectedModel === 'openai' ? 'openai' :
-                       modelSettings.selectedModel === 'anthropic' ? 'anthropic' :
-                       modelSettings.selectedModel === 'ollama' ? 'ollama' :
-                       'default';
-
-    switch (modelFamily) {
+  static getHandler(type) {
+    switch (type) {
       case 'openai':
-        return new OpenAIHandler(modelSettings);
+        return OpenAIHandler;
       case 'anthropic':
-        return new AnthropicHandler(modelSettings);
+        return AnthropicHandler;
       case 'ollama':
-        return new OllamaHandler(modelSettings);
+        return OllamaHandler;
       case 'default':
-        return new DefaultHandler(modelSettings);
       default:
-        throw new Error('Unsupported model family');
+        return DefaultHandler;
     }
+  }
+
+  static createHandler(type, settings = {}) {
+    const Handler = this.getHandler(type);
+    return new Handler(settings);
+  }
+
+  static getAvailableModels(type) {
+    const Handler = this.getHandler(type);
+    return Handler.defaultSettings.availableModels;
   }
 }
 

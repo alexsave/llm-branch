@@ -1,6 +1,58 @@
+import React from 'react';
 import BaseModelHandler from './BaseModelHandler';
 
+export const OPENAI_MODELS = {
+  GPT_3_5_TURBO: 'gpt-3.5-turbo',
+  GPT_4: 'gpt-4',
+  GPT_4_TURBO: 'gpt-4-turbo'
+};
+
 class OpenAIHandler extends BaseModelHandler {
+  static defaultSettings = {
+    apiKey: '',
+    model: OPENAI_MODELS.GPT_3_5_TURBO,
+    availableModels: Object.values(OPENAI_MODELS)
+  };
+
+  static renderSettings(settings, onSettingChange) {
+    return (
+      <>
+        <div className="setting-group">
+          <label htmlFor="openai-model">OpenAI Model:</label>
+          <select
+            id="openai-model"
+            value={settings.model}
+            onChange={(e) => onSettingChange('model', e.target.value)}
+          >
+            {Object.values(OPENAI_MODELS).map(model => (
+              <option key={model} value={model}>{model}</option>
+            ))}
+          </select>
+        </div>
+        <div className="setting-group">
+          <label htmlFor="api-key">OpenAI API Key:</label>
+          <input
+            type="password"
+            id="api-key"
+            value={settings.apiKey}
+            onChange={(e) => onSettingChange('apiKey', e.target.value)}
+            placeholder="Enter your OpenAI API key"
+          />
+          <small className="api-key-note">
+            Required for using OpenAI models directly
+          </small>
+        </div>
+      </>
+    );
+  }
+
+  constructor(settings = {}) {
+    super({
+      ...OpenAIHandler.defaultSettings,
+      ...settings
+    });
+  }
+
   async fetchCompletion(messages) {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -25,7 +77,7 @@ class OpenAIHandler extends BaseModelHandler {
   getRequestBody(messages) {
     return {
       ...super.getRequestBody(messages),
-      model: this.modelSettings.openaiModel,
+      model: this.modelSettings.model,
     };
   }
 
