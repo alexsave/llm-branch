@@ -2,9 +2,18 @@ import { useState } from 'react';
 
 export const useMessageGraph = () => {
   const [messageGraph, setMessageGraph] = useState({
-    nodes: {},
-    root: null,
-    currentPath: [],
+    nodes: {
+      preview: {
+        id: 'preview',
+        role: 'user',
+        content: '',
+        parentId: null,
+        children: [],
+        activeChild: null,
+      }
+    },
+    root: 'preview',
+    currentPath: ['preview'],
   });
   const [selectedMessageId, setSelectedMessageId] = useState(null);
 

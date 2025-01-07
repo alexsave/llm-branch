@@ -8,6 +8,8 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import MessageNode from './MessageNode';
+import { useChat } from '../contexts/ChatContext';
+import { useGraph } from '../contexts/GraphContext';
 
 const nodeTypes = {
   message: MessageNode,
@@ -18,17 +20,13 @@ const MAX_ZOOM = 2;
 const HORIZONTAL_SPACING = 250;
 const VERTICAL_SPACING = 140;
 
-const GraphView = ({
-  messageGraph,
-  selectedMessageId,
-  handleBranch,
-  gridPosition,
-  gridScale,
-  previewMessageId,
-}) => {
+const GraphView = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const { setCenter, setViewport } = useReactFlow();
+
+  const { messageGraph, selectedMessageId, handleBranch } = useChat();
+  const { gridPosition, gridScale } = useGraph();
 
   // Convert message graph to React Flow format
   const updateNodesAndEdges = useCallback(() => {
@@ -70,22 +68,23 @@ const GraphView = ({
       });
 
       // Add preview node if this is the selected node
-      if (nodeId === selectedMessageId && previewMessageId && node.role === 'assistant') {
+      if (nodeId === selectedMessageId && node.role === 'assistant') {
+        const previewId = `preview-${nodeId}`;
         const previewLevel = level + 1;
         if (!levels.has(previewLevel)) {
           levels.set(previewLevel, []);
         }
-        levels.get(previewLevel).push(previewMessageId);
-        processedNodes.set(previewMessageId, true);
+        levels.get(previewLevel).push(previewId);
+        processedNodes.set(previewId, true);
 
         // Create edge to preview node
-        const isActive = messageGraph.nodes[nodeId]?.activeChild === previewMessageId &&
+        const isActive = messageGraph.nodes[nodeId]?.activeChild === previewId &&
                         messageGraph.currentPath.includes(nodeId) &&
-                        messageGraph.currentPath.includes(previewMessageId);
+                        messageGraph.currentPath.includes(previewId);
         newEdges.push({
-          id: `${nodeId}-${previewMessageId}`,
+          id: `${nodeId}-${previewId}`,
           source: nodeId,
-          target: previewMessageId,
+          target: previewId,
           type: 'straight',
           animated: isActive,
           style: {
@@ -108,7 +107,7 @@ const GraphView = ({
       const startX = -levelWidth / 2;
 
       nodeIds.forEach((nodeId, index) => {
-        const isPreview = nodeId === previewMessageId;
+        const isPreview = nodeId.startsWith('preview-');
         const x = startX + (index * HORIZONTAL_SPACING);
         const y = level * VERTICAL_SPACING;
 
@@ -119,7 +118,7 @@ const GraphView = ({
           draggable: false,
           data: {
             message: isPreview ? {
-              id: previewMessageId,
+              id: nodeId,
               role: 'user',
               content: 'Your message...',
               parentId: selectedMessageId,
@@ -146,7 +145,7 @@ const GraphView = ({
         setCenter(latestNode.position.x, latestNode.position.y, { zoom: gridScale, duration: 500 });
       }
     }
-  }, [messageGraph, selectedMessageId, handleBranch, gridScale, setCenter, previewMessageId]);
+  }, [messageGraph, selectedMessageId, handleBranch, gridScale, setCenter]);
 
   // Update nodes and edges when the message graph changes
   useEffect(() => {

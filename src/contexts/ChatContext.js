@@ -1,5 +1,12 @@
 import React, { createContext, useState, useRef, useContext } from 'react';
 import { useMessageGraph } from '../hooks/useMessageGraph';
+import { createClient } from '@supabase/supabase-js';
+import { validateGraph } from '../utils/graphValidation';
+
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_KEY
+);
 
 const ChatContext = createContext(null);
 
@@ -7,6 +14,7 @@ export const ChatProvider = ({ children }) => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isChatVisible, setIsChatVisible] = useState(true);
   const responseRef = useRef('');
 
   const {
@@ -23,7 +31,10 @@ export const ChatProvider = ({ children }) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const parentId = selectedMessageId || getCurrentPathMessages().slice(-1)[0]?.id;
+    // Get the parent ID - either from the selected message or from the preview node's parent
+    const parentId = selectedMessageId || messageGraph.nodes.preview?.parentId;
+    
+    // Remove preview node and create user message
     const newMessageId = Date.now().toString();
     const userMessage = { 
       id: newMessageId,
@@ -34,23 +45,29 @@ export const ChatProvider = ({ children }) => {
       activeChild: null,
     };
 
-    const currentPathBeforeUpdate = [...(messageGraph.currentPath || [])];
-
+    // Update graph with new message
     setMessageGraph(prev => {
-      const newNodes = { ...prev.nodes, [newMessageId]: userMessage };
+      // Deep copy the nodes
+      const { preview, ...otherNodes } = JSON.parse(JSON.stringify(prev.nodes));
+      const newNodes = { ...otherNodes, [newMessageId]: userMessage };
+      
       if (parentId) {
         newNodes[parentId] = {
           ...newNodes[parentId],
-          children: [...newNodes[parentId].children, newMessageId],
+          children: [...(newNodes[parentId]?.children?.filter(id => id !== 'preview') || []), newMessageId],
           activeChild: newMessageId,
         };
       }
       
-      return {
-        nodes: newNodes,
-        root: prev.root || newMessageId,
-        currentPath: [...currentPathBeforeUpdate, newMessageId],
-      };
+      // Build new path from root to new message
+      const newPath = [];
+      let currentId = newMessageId;
+      while (currentId) {
+        newPath.unshift(currentId);
+        currentId = newNodes[currentId]?.parentId;
+      }
+      
+      return validateGraph(prev, newNodes, newPath);
     });
 
     setInput('');
@@ -59,6 +76,7 @@ export const ChatProvider = ({ children }) => {
     responseRef.current = '';
 
     try {
+      // Add assistant message placeholder
       const assistantMessageId = (Date.now() + 1).toString();
       const assistantMessage = {
         id: assistantMessageId,
@@ -69,25 +87,31 @@ export const ChatProvider = ({ children }) => {
         activeChild: null,
       };
 
-      setMessageGraph(prev => ({
-        nodes: { 
-          ...prev.nodes, 
-          [assistantMessageId]: assistantMessage,
-          [newMessageId]: {
-            ...prev.nodes[newMessageId],
-            children: [...prev.nodes[newMessageId].children, assistantMessageId],
-            activeChild: assistantMessageId,
-          }
-        },
-        root: prev.root,
-        currentPath: [...currentPathBeforeUpdate, newMessageId, assistantMessageId],
-      }));
+      // Add assistant message and new preview node
+      setMessageGraph(prev => {
+        const newPath = [...prev.currentPath.filter(id => id !== 'preview'), assistantMessageId];
+        // Deep copy the nodes
+        const newNodes = JSON.parse(JSON.stringify(prev.nodes));
+        newNodes[assistantMessageId] = assistantMessage;
+        newNodes[newMessageId] = {
+          ...newNodes[newMessageId],
+          children: [...newNodes[newMessageId].children, assistantMessageId],
+          activeChild: assistantMessageId,
+        };
 
+        return validateGraph(prev, newNodes, newPath);
+      });
+
+      // Get messages up to the new user message
       const getMessageHistory = () => {
         const messages = getCurrentPathMessages();
+        
+        // Add the new user message if it's not already included
         if (messages[messages.length - 1]?.content !== input) {
           messages.push({ role: 'user', content: input });
         }
+        
+        // Convert to the format expected by the API
         return messages.map(msg => ({
           role: msg.role,
           content: msg.content
@@ -119,16 +143,17 @@ export const ChatProvider = ({ children }) => {
         const text = decoder.decode(value);
         responseRef.current += text;
         
-        setMessageGraph(prev => ({
-          ...prev,
-          nodes: {
+        // Update the assistant's message
+        setMessageGraph(prev => {
+          const newNodes = {
             ...prev.nodes,
             [assistantMessageId]: {
               ...prev.nodes[assistantMessageId],
               content: responseRef.current,
             },
-          },
-        }));
+          };
+          return validateGraph(prev, newNodes, prev.currentPath);
+        });
       }
     } catch (err) {
       setError(err.message);
@@ -143,6 +168,8 @@ export const ChatProvider = ({ children }) => {
     setInput,
     isLoading,
     error,
+    isChatVisible,
+    setIsChatVisible,
     handleSubmit,
     messageGraph,
     selectedMessageId,
