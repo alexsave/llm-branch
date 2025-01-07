@@ -51,21 +51,17 @@ function App() {
     if (!isDragging.current) return;
     e.preventDefault(); // Prevent text selection while dragging
     
+    // Calculate the actual movement since last frame
     const moveDeltaX = e.clientX - lastPosition.current.x;
     const moveDeltaY = e.clientY - lastPosition.current.y;
     
-    const newX = gridPosition.x + moveDeltaX;
-    const newY = gridPosition.y + moveDeltaY;
+    // Update position based on the delta from last frame
+    handleUpdatePosition(
+      gridPosition.x + moveDeltaX,
+      gridPosition.y + moveDeltaY
+    );
     
-    // Allow much more generous boundaries for panning
-    const containerWidth = window.innerWidth - 420; // Account for chat container
-    const containerHeight = window.innerHeight;
-    const padding = 5000; // Much larger padding to allow extensive panning
-    
-    const constrainedX = Math.min(Math.max(newX, -containerWidth - padding), containerWidth + padding);
-    const constrainedY = Math.min(Math.max(newY, -containerHeight - padding), containerHeight + padding);
-    
-    handleUpdatePosition(constrainedX, constrainedY);
+    // Update last position for next frame
     lastPosition.current = { x: e.clientX, y: e.clientY };
   };
 

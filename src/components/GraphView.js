@@ -140,27 +140,6 @@ const GraphView = ({
     }
   }, [width, height, center, messageGraph.root, messageGraph.currentPath]);
 
-  const constrainPosition = (x, y) => {
-    const container = containerRef.current;
-    if (!container) return { x, y };
-    
-    const containerRect = container.getBoundingClientRect();
-    const treeWidth = width * gridScale;
-    const treeHeight = height * gridScale;
-    
-    // Add padding
-    const minX = containerRect.width - treeWidth - 40;
-    const maxX = 40;
-    const minY = containerRect.height - treeHeight - 40;
-    const maxY = 40;
-    
-    // Constrain position
-    return {
-      x: Math.min(maxX, Math.max(minX, x)),
-      y: Math.min(maxY, Math.max(minY, y))
-    };
-  };
-
   const handleWheel = (e) => {
     e.preventDefault();
     
@@ -172,29 +151,26 @@ const GraphView = ({
       
       // Calculate zoom
       const delta = -e.deltaY * ZOOM_SPEED;
-      const newScale = gridScale * (1 + delta);
+      const newScale = Math.min(Math.max(MIN_SCALE, gridScale * (1 + delta)), MAX_SCALE);
       
-      if (newScale >= MIN_SCALE && newScale <= MAX_SCALE) {
-        // Calculate mouse position relative to content
-        const mouseContentX = (mouseX - gridPosition.x) / gridScale;
-        const mouseContentY = (mouseY - gridPosition.y) / gridScale;
+      if (newScale !== gridScale) {
+        // Calculate the point we're zooming around in graph space
+        const graphX = (mouseX - gridPosition.x) / gridScale;
+        const graphY = (mouseY - gridPosition.y) / gridScale;
         
-        // Calculate new position to zoom towards mouse
-        const newX = mouseX - mouseContentX * newScale;
-        const newY = mouseY - mouseContentY * newScale;
-        
-        const constrained = constrainPosition(newX, newY);
+        // Calculate new position to keep the point under the mouse
+        const newX = mouseX - graphX * newScale;
+        const newY = mouseY - graphY * newScale;
         
         handleUpdateScale(newScale);
-        handleUpdatePosition(constrained.x, constrained.y);
+        handleUpdatePosition(newX, newY);
       }
     } else {
       // Pan
-      const constrained = constrainPosition(
+      handleUpdatePosition(
         gridPosition.x - e.deltaX,
         gridPosition.y - e.deltaY
       );
-      handleUpdatePosition(constrained.x, constrained.y);
     }
   };
 
