@@ -88,9 +88,11 @@ export const ChatProvider = ({ children }) => {
     setError(null);
     responseRef.current = '';
 
+    // Declare assistantMessageId outside try block
+    const assistantMessageId = (Date.now() + 1).toString();
+
     try {
       // Add assistant message placeholder
-      const assistantMessageId = (Date.now() + 1).toString();
       const assistantMessage = {
         id: assistantMessageId,
         role: 'assistant',
@@ -360,7 +362,7 @@ export const ChatProvider = ({ children }) => {
       setError(err.message);
     } finally {
       setIsLoading(false);
-      setSelectedMessageId(null);
+      setSelectedMessageId(assistantMessageId);
     }
   };
 
