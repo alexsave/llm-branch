@@ -181,7 +181,6 @@
 }
 
 .message.selected {
-  border-color: #2196f3;
   box-shadow: 0 0 0 1px #2196f3;
 }
 
@@ -647,24 +646,24 @@
   background: rgba(20, 20, 20, 0.3);
 }
 
-/* Model family colors - only affect borders */
-.react-flow__node-message .message[data-model-family="openai"] {
+/* Model family colors - affect borders for both graph nodes and chat messages */
+.message[data-model-family="openai"] {
   border-color: #19c37d;
 }
 
-.react-flow__node-message .message[data-model-family="anthropic"] {
+.message[data-model-family="anthropic"] {
   border-color: #ff6b6b;
 }
 
-.react-flow__node-message .message[data-model-family="ollama"] {
+.message[data-model-family="ollama"] {
   border-color: #5436da;
 }
 
-.react-flow__node-message .message[data-model-family="default"] {
+.message[data-model-family="default"] {
   border-color: #9b6dff;
 }
 
-.react-flow__node-message .message[data-model-family="user"] {
+.message[data-model-family="user"] {
   border-color: #777;
 }
 
