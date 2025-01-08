@@ -180,10 +180,6 @@
   display: none;
 }
 
-.message.selected {
-  box-shadow: 0 0 0 1px #2196f3;
-}
-
 .message strong {
   display: block;
   margin-bottom: 8px;
@@ -237,10 +233,6 @@
 
 .message.assistant:hover .reply-label {
   opacity: 1;
-}
-
-.message.active {
-  box-shadow: 0 0 0 1px rgba(76, 175, 80, 0.3);
 }
 
 .message.active::after {
@@ -646,25 +638,55 @@
   background: rgba(20, 20, 20, 0.3);
 }
 
-/* Model family colors - affect borders for both graph nodes and chat messages */
+/* Base shadow for all AI messages */
+.message:not([data-model-family="user"]) {
+  box-shadow: 0 0 6px 2px rgba(255, 255, 255, 0.6);
+}
+
+/* Model family colors - affect borders and shadows for both graph nodes and chat messages */
 .message[data-model-family="openai"] {
   border-color: #19c37d;
+  box-shadow: 0 0 6px 2px rgba(255, 223, 0, 0.6);
 }
 
 .message[data-model-family="anthropic"] {
   border-color: #ff6b6b;
+  box-shadow: 0 0 6px 2px rgba(255, 0, 0, 0.6);
 }
 
 .message[data-model-family="ollama"] {
   border-color: #5436da;
+  box-shadow: 0 0 6px 2px rgba(0, 102, 255, 0.6);
 }
 
 .message[data-model-family="default"] {
   border-color: #9b6dff;
+  box-shadow: 0 0 6px 2px rgba(170, 0, 255, 0.6);
 }
 
 .message[data-model-family="user"] {
   border-color: #777;
+}
+
+/* Also update hover states to intensify the colored shadow */
+.message.clickable:hover[data-model-family="openai"] {
+  box-shadow: 0 0 6px 2px rgba(255, 223, 0, 0.6);
+}
+
+.message.clickable:hover[data-model-family="anthropic"] {
+  box-shadow: 0 0 6px 2px rgba(255, 0, 0, 0.6);
+}
+
+.message.clickable:hover[data-model-family="ollama"] {
+  box-shadow: 0 0 6px 2px rgba(0, 102, 255, 0.6);
+}
+
+.message.clickable:hover[data-model-family="default"] {
+  box-shadow: 0 0 6px 2px rgba(170, 0, 255, 0.6);
+}
+
+.message.clickable:hover[data-model-family="user"] {
+  box-shadow: none;
 }
 
 /* Pulse animation for active nodes */
@@ -673,8 +695,16 @@
     outline-width: 1px;
     outline-offset: 0px;
   }
+  25% {
+    outline-width: 2px;
+    outline-offset: 0px;
+  }
   50% {
     outline-width: 3px;
+    outline-offset: 0px;
+  }
+  75% {
+    outline-width: 2px;
     outline-offset: 0px;
   }
   100% {
@@ -697,7 +727,7 @@
   border-radius: inherit;
   pointer-events: none;
   outline-style: solid;
-  animation: border-pulse 2s infinite ease-in-out;
+  animation: border-pulse 3s infinite ease-in-out;
 }
 
 /* Model family colors for the pulse outline */
