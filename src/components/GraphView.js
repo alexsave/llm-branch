@@ -93,19 +93,24 @@ const getLayoutedElements = (nodes, edges, direction = 'TB') => {
   g.setGraph({
     rankdir: direction,
     nodesep: 100,
-    ranksep: 50,  // Increased to handle taller nodes
+    ranksep: 50,
     edgesep: 50,
     marginx: 50,
     marginy: 50,
   });
+
   g.setDefaultEdgeLabel(() => ({}));
 
-  // Add nodes
+  // Add nodes with validation
   nodes.forEach((node) => {
-    const dimensions = getNodeDimensions(node.data.message);
+    const dimensions = getNodeDimensions(node.data?.message);
+    // Ensure dimensions are valid numbers
+    const width = Math.max(NODE_WIDTH, Math.min(1000, Math.floor(dimensions.width)));
+    const height = Math.max(NODE_HEIGHT, Math.min(1000, Math.floor(dimensions.height)));
+    
     g.setNode(node.id, { 
-      width: dimensions.width,
-      height: dimensions.height,
+      width,
+      height,
       label: node.id
     });
   });
@@ -114,8 +119,8 @@ const getLayoutedElements = (nodes, edges, direction = 'TB') => {
   edges.forEach((edge) => {
     if (edge.source && edge.target) {
       g.setEdge(edge.source, edge.target, {
-        minlen: 1,  // Allow nodes to be closer if possible
-        weight: 1   // Default edge weight
+        minlen: 1,
+        weight: 1
       });
     }
   });
@@ -134,12 +139,13 @@ const getLayoutedElements = (nodes, edges, direction = 'TB') => {
       return node;
     }
 
+    // Ensure position values are finite
+    const x = isFinite(nodeWithPosition.x) ? nodeWithPosition.x - (nodeWithPosition.width / 2) : 0;
+    const y = isFinite(nodeWithPosition.y) ? nodeWithPosition.y - (nodeWithPosition.height / 2) : 0;
+
     return {
       ...node,
-      position: {
-        x: nodeWithPosition.x - (nodeWithPosition.width / 2),
-        y: nodeWithPosition.y - (nodeWithPosition.height / 2)
-      }
+      position: { x, y }
     };
   });
 
@@ -154,11 +160,11 @@ const getNodeDimensions = (message) => {
   
   try {
     // Count actual lines in the content (code blocks, etc.)
-    const lineBreaks = (message.content.match(/\n/g) || []).length;
+    const lineBreaks = ((message.content || '').match(/\n/g) || []).length;
     
     // Calculate wrapped lines based on character count
     const charsPerLine = 45;  // Slightly reduced for better readability
-    const contentLines = Math.ceil((message.content.length || 0) / charsPerLine);
+    const contentLines = Math.ceil(((message.content || '').length || 0) / charsPerLine);
     
     // Total lines is the max of actual lines and wrapped lines
     const totalLines = Math.max(lineBreaks + 1, contentLines);
@@ -166,12 +172,18 @@ const getNodeDimensions = (message) => {
     // Calculate height: base padding + line height * number of lines
     const lineHeight = 22;  // Pixels per line
     const verticalPadding = 32;  // 16px top + 16px bottom
-    const height = Math.max(NODE_HEIGHT, (lineHeight * totalLines) + verticalPadding);
+    const height = Math.max(NODE_HEIGHT, Math.floor((lineHeight * totalLines) + verticalPadding));
 
     // Calculate width based on longest line
-    const longestLine = message.content.split('\n').reduce((max, line) => 
+    const longestLine = (message.content || '').split('\n').reduce((max, line) => 
       Math.max(max, line.length), 0);
-    const width = Math.max(NODE_WIDTH, Math.min(800, longestLine * 8 + 32)); // 8px per char + padding
+    const width = Math.max(NODE_WIDTH, Math.min(800, Math.floor(longestLine * 8 + 32))); // 8px per char + padding
+    
+    // Ensure we never return NaN or invalid values
+    if (isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
+      console.warn('Invalid dimensions calculated:', { width, height });
+      return { width: NODE_WIDTH, height: NODE_HEIGHT };
+    }
     
     return { width, height };
   } catch (error) {
@@ -193,11 +205,21 @@ const GraphView = () => {
   const centerOnNode = useCallback((nodeId) => {
     const node = getNode(nodeId);
     if (node) {
-      setCenter(
-        node.position.x + (node.width / 2),
-        node.position.y + (node.height / 2),
-        { zoom: gridScale, duration: 500 }
-      );
+      const dimensions = getNodeDimensions(node.data?.message);
+      const width = dimensions.width || NODE_WIDTH;
+      const height = dimensions.height || NODE_HEIGHT;
+      
+      const centerX = node.position.x + (width / 2);
+      const centerY = node.position.y + (height / 2);
+      
+      // Ensure we're not passing NaN values
+      if (!isNaN(centerX) && !isNaN(centerY)) {
+        setCenter(centerX, centerY, { zoom: gridScale, duration: 500 });
+      } else {
+        console.warn('Invalid center coordinates:', { centerX, centerY, node });
+        // Fallback to just the node position if calculations fail
+        setCenter(node.position.x, node.position.y, { zoom: gridScale, duration: 500 });
+      }
     }
   }, [getNode, setCenter, gridScale]);
 
@@ -213,14 +235,12 @@ const GraphView = () => {
 
   // Convert message graph to React Flow format
   const updateNodesAndEdges = useCallback(() => {
-    console.log('Updating graph with:', { messageGraph, selectedMessageId });
     const newNodes = [];
     const newEdges = [];
 
     const processNode = (nodeId) => {
       if (!messageGraph.nodes[nodeId]) return;
       const node = messageGraph.nodes[nodeId];
-      console.log('Processing node:', { nodeId, node, currentPath: messageGraph.currentPath });
 
       // Add node
       newNodes.push({
@@ -247,13 +267,6 @@ const GraphView = () => {
           const isActive = messageGraph.currentPath.includes(nodeId) && 
                           messageGraph.currentPath.includes(childId) &&
                           messageGraph.nodes[nodeId].activeChild === childId;
-          console.log('Edge status:', { 
-            source: nodeId, 
-            target: childId, 
-            isActive,
-            inPath: messageGraph.currentPath.includes(nodeId) && messageGraph.currentPath.includes(childId),
-            isActiveChild: messageGraph.nodes[nodeId].activeChild === childId
-          });
           newEdges.push({
             id: `${nodeId}-${childId}`,
             source: nodeId,
@@ -335,7 +348,12 @@ const GraphView = () => {
 
   // Update viewport when grid position changes
   useEffect(() => {
-    setViewport({ x: gridPosition.x, y: gridPosition.y, zoom: gridScale });
+    // Ensure we have valid, finite numbers for the viewport
+    const safeX = isFinite(gridPosition.x) ? gridPosition.x : 0;
+    const safeY = isFinite(gridPosition.y) ? gridPosition.y : 0;
+    const safeZoom = isFinite(gridScale) && gridScale > 0 ? gridScale : 1;
+    
+    setViewport({ x: safeX, y: safeY, zoom: safeZoom });
   }, [gridPosition, gridScale, setViewport]);
 
   return (
@@ -351,12 +369,29 @@ const GraphView = () => {
         maxZoom={MAX_ZOOM}
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}
         fitView
+        fitViewOptions={{ 
+          padding: 0.2,
+          minZoom: MIN_ZOOM,
+          maxZoom: MAX_ZOOM 
+        }}
         nodesDraggable={false}
         nodesConnectable={false}
         connectOnClick={false}
+        defaultEdgeOptions={{ type: 'smoothstep' }}
+        style={{ background: '#1a1a1a' }}
       >
-        <Background color="rgba(255, 255, 255, 0.1)" gap={40} />
-        <Controls />
+        <Background 
+          color="rgba(255, 255, 255, 0.1)" 
+          gap={40} 
+          size={1}
+          offset={1}
+          variant="dots"
+        />
+        <Controls 
+          showZoom={true}
+          showFitView={true}
+          showInteractive={false}
+        />
       </ReactFlow>
     </div>
   );
