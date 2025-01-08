@@ -1,4 +1,3 @@
-import React from 'react';
 import BaseModelHandler from './BaseModelHandler';
 
 export const DEFAULT_MODELS = {

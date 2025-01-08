@@ -73,9 +73,7 @@ export const useMessageGraph = () => {
   };
 
   const handleBranch = (messageId) => {
-    console.log('handleBranch called with:', messageId);
     const node = messageGraph.nodes[messageId];
-    console.log('Found node:', node);
     if (!node || node.role === 'user') return;
 
     // Build the new path from root to selected node
@@ -85,18 +83,15 @@ export const useMessageGraph = () => {
       newPath.unshift(currentId);
       currentId = messageGraph.nodes[currentId]?.parentId;
     }
-    console.log('Built new path:', newPath);
 
     // Update the graph with new path and active children
     setMessageGraph(prev => {
-      console.log('Updating message graph:', { prev, newPath });
       const newNodes = { ...prev.nodes };
       
       // Update active children along the new path
       for (let i = 0; i < newPath.length - 1; i++) {
         const parentId = newPath[i];
         const childId = newPath[i + 1];
-        console.log('Updating active child:', { parentId, childId });
         newNodes[parentId] = {
           ...newNodes[parentId],
           activeChild: childId
@@ -108,7 +103,6 @@ export const useMessageGraph = () => {
         nodes: newNodes,
         currentPath: newPath,
       };
-      console.log('New graph state:', newGraph);
       return newGraph;
     });
     

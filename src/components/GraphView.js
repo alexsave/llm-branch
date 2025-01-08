@@ -12,71 +12,6 @@ import MessageNode from './MessageNode';
 import { useChat } from '../contexts/ChatContext';
 import { useGraph } from '../contexts/GraphContext';
 
-const USE_TEST_DATA = false;
-
-const TEST_MESSAGE_GRAPH = {
-  root: 'msg1',
-  currentPath: ['msg1', 'msg2', 'msg3'],
-  nodes: {
-    'msg1': {
-      id: 'msg1',
-      role: 'user',
-      content: 'Can you help me understand how React hooks work? I\'m particularly interested in useState and useEffect.',
-      children: ['msg2'],
-      activeChild: 'msg2',
-    },
-    'msg2': {
-      id: 'msg2',
-      role: 'assistant',
-      content: 'React hooks are functions that allow you to use state and other React features in functional components. The useState hook lets you add state to functional components, while useEffect handles side effects like data fetching or DOM manipulation. Would you like me to explain each one in detail?',
-      children: ['msg3', 'msg4', 'msg7'],
-      activeChild: 'msg3',
-    },
-    'msg3': {
-      id: 'msg3',
-      role: 'user',
-      content: 'Yes, please explain useState first.',
-      children: ['msg5'],
-      activeChild: 'msg5',
-    },
-    'msg4': {
-      id: 'msg4',
-      role: 'user',
-      content: 'Actually, I\'d prefer to learn about useEffect first.',
-      children: ['msg6'],
-      activeChild: 'msg6',
-    },
-    'msg5': {
-      id: 'msg5',
-      role: 'assistant',
-      content: 'useState is a hook that lets you add state variables to functional components. It returns an array with two elements: the current state value and a function to update it. Here\'s a simple example:\n\nconst [count, setCount] = useState(0);\n\nIn this case, count is the state variable initialized to 0, and setCount is the function you use to update it. When you call setCount, React will re-render the component with the new value. This is particularly useful for managing dynamic data in your components.',
-      children: [],
-      activeChild: null,
-    },
-    'msg6': {
-      id: 'msg6',
-      role: 'assistant',
-      content: 'useEffect is a hook for handling side effects in your components. It runs after every render and can optionally be configured to run only when certain values change. Here\'s a basic example:\n\nuseEffect(() => {\n  document.title = `Count: ${count}`;\n}, [count]);\n\nThe first argument is a function that contains the effect code, and the second argument is an array of dependencies. The effect will only run when these dependencies change.',
-      children: [],
-      activeChild: null,
-    },
-    'msg7': {
-      id: 'msg7',
-      role: 'user',
-      content: 'Can you show me a complete example combining both hooks?',
-      children: ['msg8'],
-      activeChild: 'msg8',
-    },
-    'msg8': {
-      id: 'msg8',
-      role: 'assistant',
-      content: 'Here\'s a complete example that uses both useState and useEffect to create a simple counter with a document title update:\n\nfunction Counter() {\n  const [count, setCount] = useState(0);\n\n  useEffect(() => {\n    document.title = `Count: ${count}`;\n  }, [count]);\n\n  return (\n    <button onClick={() => setCount(count + 1)}>\n      Click me! Count: {count}\n    </button>\n  );\n}\n\nThis component maintains a count state with useState and updates the document title whenever the count changes using useEffect.',
-      children: [],
-      activeChild: null,
-    },
-  }
-};
-
 const nodeTypes = {
   message: MessageNode,
 };
@@ -198,7 +133,7 @@ const GraphView = () => {
   const { setCenter, setViewport, getNode } = useReactFlow();
 
   const { messageGraph: originalMessageGraph, selectedMessageId, handleBranch } = useChat();
-  const messageGraph = USE_TEST_DATA ? TEST_MESSAGE_GRAPH : originalMessageGraph;
+  const messageGraph = originalMessageGraph;
   const { gridPosition, gridScale } = useGraph();
 
   // Center on node with actual dimensions
@@ -225,10 +160,8 @@ const GraphView = () => {
 
   // Handle node click
   const onNodeClick = useCallback((event, node) => {
-    console.log('Node clicked:', node);
     // Only allow clicking assistant nodes that aren't the current selected node
     if (node.data.message.role === 'assistant' && node.id !== selectedMessageId) {
-      console.log('Handling branch for node:', node.id);
       handleBranch(node.id);
     }
   }, [handleBranch, selectedMessageId]);
@@ -339,7 +272,7 @@ const GraphView = () => {
       // Use setTimeout to ensure nodes are rendered and dimensions are available
       setTimeout(() => centerOnNode(latestMessageId), 100);
     }
-  }, [messageGraph, centerOnNode, selectedMessageId, handleBranch]);
+  }, [messageGraph, centerOnNode, selectedMessageId, handleBranch, setNodes, setEdges]);
 
   // Update nodes and edges when the message graph changes
   useEffect(() => {
