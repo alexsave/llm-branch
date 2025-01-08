@@ -521,14 +521,29 @@
 
 @media (max-width: 768px) {
   .chat-container {
-    width: calc(100% - 40px);
-    height: calc(100vh - 40px);
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: 0;
+    margin: 0;
+    border-radius: 0;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 
   .chat-container.hidden {
     width: 48px;
     height: 48px;
     border-radius: 24px;
+    right: 20px;
+    bottom: max(20px, env(safe-area-inset-bottom));
+    left: auto;
+    top: auto;
   }
 
   .chat-container.hidden .chat-toggle {
@@ -537,7 +552,7 @@
 
   .input-form {
     padding: 10px;
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
   }
 
   .input-form textarea {
@@ -551,7 +566,7 @@
 
   .messages {
     padding: 10px;
-    padding-top: 52px;
+    padding-top: max(52px, env(safe-area-inset-top));
   }
 
   .loading,
