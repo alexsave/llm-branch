@@ -11,14 +11,25 @@ export const ChatProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [isChatVisible, setIsChatVisible] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+  const [selectedModelType, setSelectedModelType] = useState('default');
   const [modelSettings, setModelSettings] = useState({
-    selectedModel: 'gpt-3.5-turbo',
-    apiKey: '',
-    ollamaUrl: 'http://localhost:11434',
-    ollamaModelName: 'llama3.2',
-    openaiModel: 'gpt-3.5-turbo',
-    anthropicModel: 'claude-3-opus-20240229',
+    openai: {
+      apiKey: '',
+      model: 'gpt-3.5-turbo'
+    },
+    anthropic: {
+      apiKey: '',
+      model: 'claude-3-opus-20240229'
+    },
+    ollama: {
+      url: 'http://localhost:11434',
+      model: 'llama3.2'
+    },
+    default: {
+      model: 'gpt-3.5-turbo'
+    }
   });
+
   const responseRef = useRef('');
 
   const {
@@ -31,8 +42,22 @@ export const ChatProvider = ({ children }) => {
     handleBranch,
   } = useMessageGraph();
 
-  const updateModelSettings = (newSettings) => {
-    setModelSettings(newSettings);
+  const updateModelType = (type) => {
+    setSelectedModelType(type);
+  };
+
+  const updateModelSettings = (type, settings) => {
+    setModelSettings(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        ...settings
+      }
+    }));
+  };
+
+  const getAvailableModels = (type) => {
+    return ModelHandlerFactory.getAvailableModels(type);
   };
 
   const handleSubmit = async (e) => {
@@ -87,14 +112,8 @@ export const ChatProvider = ({ children }) => {
         parentId: newMessageId,
         children: [],
         activeChild: null,
-        modelFamily: modelSettings.selectedModel === 'openai' ? 'openai' :
-                    modelSettings.selectedModel === 'anthropic' ? 'anthropic' :
-                    modelSettings.selectedModel === 'ollama' ? 'ollama' :
-                    'default',
-        model: modelSettings.selectedModel === 'openai' ? modelSettings.openaiModel :
-               modelSettings.selectedModel === 'anthropic' ? modelSettings.anthropicModel :
-               modelSettings.selectedModel === 'ollama' ? modelSettings.ollamaModelName :
-               'gpt-3.5-turbo'
+        modelFamily: selectedModelType,
+        model: modelSettings[selectedModelType].model
       };
 
       setMessageGraph(prev => {
@@ -115,7 +134,7 @@ export const ChatProvider = ({ children }) => {
         messages.push({ role: 'user', content: input });
       }
 
-      const modelHandler = ModelHandlerFactory.createHandler(modelSettings);
+      const modelHandler = ModelHandlerFactory.createHandler(selectedModelType, modelSettings[selectedModelType]);
       const response = await modelHandler.fetchCompletion(messages);
 
       const updateMessage = (content) => {
@@ -150,8 +169,11 @@ export const ChatProvider = ({ children }) => {
     setIsChatVisible,
     showSettings,
     setShowSettings,
+    selectedModelType,
+    updateModelType,
     modelSettings,
     updateModelSettings,
+    getAvailableModels,
     handleSubmit,
     messageGraph,
     selectedMessageId,
