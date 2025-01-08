@@ -76,13 +76,18 @@ export const ChatProvider = ({ children }) => {
     };
 
     setMessageGraph(prev => {
-      const { preview, ...otherNodes } = JSON.parse(JSON.stringify(prev.nodes));
+      console.log('User message - Before filtering:', JSON.stringify(prev.nodes, null, 2));
+      const otherNodes = Object.fromEntries(
+        Object.entries(JSON.parse(JSON.stringify(prev.nodes)))
+          .filter(([id]) => !id.startsWith('preview'))
+      );
+      console.log('User message - After filtering previews:', JSON.stringify(otherNodes, null, 2));
       const newNodes = { ...otherNodes, [newMessageId]: userMessage };
       
       if (parentId) {
         newNodes[parentId] = {
           ...newNodes[parentId],
-          children: [...(newNodes[parentId]?.children?.filter(id => id !== 'preview') || []), newMessageId],
+          children: [...(newNodes[parentId]?.children?.filter(id => !id.startsWith('preview')) || []), newMessageId],
           activeChild: newMessageId,
         };
       }
@@ -94,6 +99,7 @@ export const ChatProvider = ({ children }) => {
         currentId = newNodes[currentId]?.parentId;
       }
       
+      console.log('User message - Final nodes:', JSON.stringify(newNodes, null, 2));
       return validateGraph(prev, newNodes, newPath);
     });
 
@@ -117,16 +123,25 @@ export const ChatProvider = ({ children }) => {
       };
 
       setMessageGraph(prev => {
-        const newPath = [...prev.currentPath.filter(id => id !== 'preview'), assistantMessageId];
+        console.log('Assistant message - Before filtering:', JSON.stringify(prev.nodes, null, 2));
+        const newPath = [...prev.currentPath.filter(id => !id.startsWith('preview')), assistantMessageId];
         const newNodes = JSON.parse(JSON.stringify(prev.nodes));
-        newNodes[assistantMessageId] = assistantMessage;
-        newNodes[newMessageId] = {
-          ...newNodes[newMessageId],
-          children: [...newNodes[newMessageId].children, assistantMessageId],
+        
+        // Filter out all preview nodes
+        const filteredNodes = Object.fromEntries(
+          Object.entries(newNodes).filter(([id]) => !id.startsWith('preview'))
+        );
+        console.log('Assistant message - After filtering previews:', JSON.stringify(filteredNodes, null, 2));
+        
+        filteredNodes[assistantMessageId] = assistantMessage;
+        filteredNodes[newMessageId] = {
+          ...filteredNodes[newMessageId],
+          children: [...(filteredNodes[newMessageId]?.children || []), assistantMessageId],
           activeChild: assistantMessageId,
         };
 
-        return validateGraph(prev, newNodes, newPath);
+        console.log('Assistant message - Final nodes:', JSON.stringify(filteredNodes, null, 2));
+        return validateGraph(prev, filteredNodes, newPath);
       });
 
       const messages = getCurrentPathMessages();
@@ -139,6 +154,7 @@ export const ChatProvider = ({ children }) => {
 
       const updateMessage = (content) => {
         setMessageGraph(prev => {
+          console.log('Update content - Before:', JSON.stringify(prev.nodes, null, 2));
           const newNodes = {
             ...prev.nodes,
             [assistantMessageId]: {
@@ -146,6 +162,7 @@ export const ChatProvider = ({ children }) => {
               content,
             },
           };
+          console.log('Update content - After:', JSON.stringify(newNodes, null, 2));
           return validateGraph(prev, newNodes, prev.currentPath);
         });
       };

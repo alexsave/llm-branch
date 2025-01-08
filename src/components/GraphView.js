@@ -132,7 +132,7 @@ const GraphView = () => {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const { setCenter, setViewport, getNode } = useReactFlow();
 
-  const { messageGraph: originalMessageGraph, selectedMessageId, handleBranch } = useChat();
+  const { messageGraph: originalMessageGraph, selectedMessageId, handleBranch, isLoading } = useChat();
   const messageGraph = originalMessageGraph;
   const { gridPosition, gridScale } = useGraph();
 
@@ -215,8 +215,8 @@ const GraphView = () => {
         }
       });
 
-      // Add preview node if this is the selected node
-      if (nodeId === selectedMessageId && node.role === 'assistant') {
+      // Add preview node if this is the selected node and we're not loading
+      if (nodeId === selectedMessageId && node.role === 'assistant' && !isLoading) {
         const previewId = `preview-${nodeId}`;
         newNodes.push({
           id: previewId,
@@ -272,7 +272,7 @@ const GraphView = () => {
       // Use setTimeout to ensure nodes are rendered and dimensions are available
       setTimeout(() => centerOnNode(latestMessageId), 100);
     }
-  }, [messageGraph, centerOnNode, selectedMessageId, handleBranch, setNodes, setEdges]);
+  }, [messageGraph, centerOnNode, selectedMessageId, handleBranch, setNodes, setEdges, isLoading]);
 
   // Update nodes and edges when the message graph changes
   useEffect(() => {
