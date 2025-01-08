@@ -141,7 +141,7 @@
   position: relative;
   margin: 0;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(20, 20, 20, 0.3);
   backdrop-filter: blur(10px);
   transition: all 0.2s ease;
   color: rgba(255, 255, 255, 0.9);
@@ -150,27 +150,6 @@
 .message.user {
   background: rgba(128, 128, 128, 0.1);
   border-color: rgba(128, 128, 128, 0.3);
-}
-
-/* Model family specific styles */
-.message.assistant[data-model-family="openai"] {
-  border-color: #259c7a;
-  background: rgba(37, 156, 122, 0.1);
-}
-
-.message.assistant[data-model-family="anthropic"] {
-  border-color: #c2603d;
-  background: rgba(194, 96, 61, 0.1);
-}
-
-.message.assistant[data-model-family="ollama"] {
-  border-color: #132b42;
-  background: rgba(19, 43, 66, 0.1);
-}
-
-.message.assistant[data-model-family="default"] {
-  border-color: #808080;
-  background: rgba(128, 128, 128, 0.1);
 }
 
 .model-info {
@@ -198,24 +177,7 @@
 }
 
 .message-actions {
-  position: absolute;
-  bottom: -24px;
-  left: 50%;
-  transform: translateX(-50%);
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  background: rgba(0, 0, 0, 0.8);
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  pointer-events: none;
-  white-space: nowrap;
-  z-index: 1000;
-}
-
-.message.active {
-  border-color: #4caf50;
-  box-shadow: 0 0 0 1px #4caf50;
+  display: none;
 }
 
 .message.selected {
@@ -249,12 +211,28 @@
 }
 
 .reply-label {
-  font-size: 12px;
-  color: #2196f3;
-  padding: 4px 8px;
-  background: rgba(33, 150, 243, 0.1);
-  border-radius: 6px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
   opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  text-align: center;
+  z-index: 10;
+  background: none;
+  padding: 0;
+  margin: 0;
+  width: auto;
+  height: auto;
+}
+
+.message.assistant:hover .message-content,
+.message.assistant:hover strong,
+.message.assistant:hover .model-info {
+  opacity: 0.15;
   transition: opacity 0.2s ease;
 }
 
@@ -263,21 +241,11 @@
 }
 
 .message.active {
-  border-color: #4caf50;
   box-shadow: 0 0 0 1px rgba(76, 175, 80, 0.3);
 }
 
 .message.active::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  border-radius: 12px;
-  border: 1px solid #4caf50;
-  animation: pulse 2s infinite;
-  pointer-events: none;
+  content: none;
 }
 
 .connections path {
@@ -665,36 +633,91 @@
 }
 
 .message.active::after {
+  content: none;
+}
+
+/* Graph-specific message styles */
+.react-flow__node-message {
+  font-size: inherit;
+  background: transparent;
+  border: none;
+}
+
+.react-flow__node-message .message {
+  background: rgba(20, 20, 20, 0.3);
+}
+
+/* Model family colors - only affect borders */
+.react-flow__node-message .message[data-model-family="openai"] {
+  border-color: #19c37d;
+}
+
+.react-flow__node-message .message[data-model-family="anthropic"] {
+  border-color: #ff6b6b;
+}
+
+.react-flow__node-message .message[data-model-family="ollama"] {
+  border-color: #5436da;
+}
+
+.react-flow__node-message .message[data-model-family="default"] {
+  border-color: #9b6dff;
+}
+
+.react-flow__node-message .message[data-model-family="user"] {
+  border-color: #777;
+}
+
+/* Pulse animation for active nodes */
+@keyframes border-pulse {
+  0% {
+    outline-width: 1px;
+    outline-offset: 0px;
+  }
+  50% {
+    outline-width: 3px;
+    outline-offset: 0px;
+  }
+  100% {
+    outline-width: 1px;
+    outline-offset: 0px;
+  }
+}
+
+.react-flow__node-message .message.active {
+  position: relative;
+}
+
+.react-flow__node-message .message.active::after {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  outline-style: solid;
+  animation: border-pulse 2s infinite ease-in-out;
 }
 
-/* Model family specific styles for graph nodes */
-.react-flow__node-message .message[data-model-family="openai"] {
-  border-color: #259c7a;
-  background: rgba(37, 156, 122, 0.1);
+/* Model family colors for the pulse outline */
+.react-flow__node-message .message[data-model-family="openai"].active::after {
+  outline-color: #19c37d;
 }
 
-.react-flow__node-message .message[data-model-family="anthropic"] {
-  border-color: #c2603d;
-  background: rgba(194, 96, 61, 0.1);
+.react-flow__node-message .message[data-model-family="anthropic"].active::after {
+  outline-color: #ff6b6b;
 }
 
-.react-flow__node-message .message[data-model-family="ollama"] {
-  border-color: #132b42;
-  background: rgba(19, 43, 66, 0.1);
+.react-flow__node-message .message[data-model-family="ollama"].active::after {
+  outline-color: #5436da;
 }
 
-.react-flow__node-message .message[data-model-family="default"] {
-  border-color: #808080;
-  background: rgba(128, 128, 128, 0.1);
+.react-flow__node-message .message[data-model-family="default"].active::after {
+  outline-color: #9b6dff;
 }
 
-.react-flow__node-message .message[data-model-family="user"] {
-  background: rgba(128, 128, 128, 0.1);
-  border-color: rgba(128, 128, 128, 0.3);
+.react-flow__node-message .message[data-model-family="user"].active::after {
+  outline-color: #777;
 }
